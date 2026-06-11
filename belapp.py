@@ -16,20 +16,13 @@ from core.parsing import parse_filename, parse_folder_name
 from core.genres import format_genre, BEL_GENRES
 from core.organizer import build_path
 from core.config import load_config, save_config
+from core.metadata import (MUTAGEN_OK, is_audio, is_image, read_id3,
+                           write_id3_tags)
 
 CONFIG_PATH  = Path(__file__).parent / 'config.json'
 HISTORY_PATH = Path(__file__).parent / 'historial.json'
 
-try:
-    from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPUB, TCON, TDRC, ID3NoHeaderError
-    from mutagen.flac import FLAC
-    MUTAGEN_OK = True
-except ImportError:
-    MUTAGEN_OK = False
-
 # ─── CONSTANTES ────────────────────────────────────────────────────────────────
-AUDIO_EXTS   = {'.mp3', '.wav', '.aiff', '.flac', '.m4a'}
-IMAGE_EXTS   = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 DISCOGS_BASE = 'https://api.discogs.com'
 MAX_ITEMS    = 25   # Tope de ítems por tanda: evita freezes al leer tags y mantiene
                     # el flujo de validación manejable. Cambialo a gusto.
@@ -52,9 +45,6 @@ INFO    = '#5599ff'
 PURPLE  = '#a78bfa'
 
 # ─── HELPERS ───────────────────────────────────────────────────────────────────
-def is_audio(n): return Path(n).suffix.lower() in AUDIO_EXTS
-def is_image(n): return Path(n).suffix.lower() in IMAGE_EXTS
-
 def lighten(hex_color, amount=0.18):
     """Devuelve una versión más clara del color (para hover)."""
     h = hex_color.lstrip('#')
@@ -67,51 +57,7 @@ def lighten(hex_color, amount=0.18):
 # format_genre, parse_filename, parse_folder_name y build_path viven ahora
 # en el paquete core/ (parsing.py, genres.py, organizer.py) — importados arriba.
 
-def read_id3(filepath):
-    tags = {}
-    if not MUTAGEN_OK: return tags
-    try:
-        ext = filepath.suffix.lower()
-        if ext in ('.mp3', '.wav', '.aiff'):
-            audio = ID3(str(filepath))
-            def g(k):
-                v = audio.get(k)
-                return str(v.text[0]).strip() if v and hasattr(v,'text') and v.text else ''
-            tags = {'artist': g('TPE1') or g('TPE2'), 'title': g('TIT2'),
-                    'album': g('TALB'), 'label': g('TPUB'), 'genre': g('TCON'),
-                    'year': str(g('TDRC') or g('TYER'))[:4]}
-        elif ext == '.flac':
-            audio = FLAC(str(filepath))
-            def gf(k): return (audio.get(k.lower()) or [''])[0].strip()
-            tags = {'artist': gf('artist'), 'title': gf('title'), 'album': gf('album'),
-                    'label': gf('organization') or gf('label'), 'genre': gf('genre'),
-                    'year': (gf('date') or gf('year'))[:4]}
-    except Exception: pass
-    return {k: v for k, v in tags.items() if v}
-
-def write_id3_tags(filepath, artist, title, album, label, genre, year):
-    if not MUTAGEN_OK: return False
-    try:
-        ext = filepath.suffix.lower()
-        if ext in ('.mp3', '.wav', '.aiff'):
-            try:    tags = ID3(str(filepath))
-            except ID3NoHeaderError: tags = ID3()
-            tags['TIT2'] = TIT2(encoding=3, text=title)
-            tags['TPE1'] = TPE1(encoding=3, text=artist)
-            tags['TALB'] = TALB(encoding=3, text=album)
-            tags['TPUB'] = TPUB(encoding=3, text=label)
-            tags['TCON'] = TCON(encoding=3, text=genre)
-            tags['TDRC'] = TDRC(encoding=3, text=year)
-            tags.save(str(filepath))
-            return True
-        elif ext == '.flac':
-            audio = FLAC(str(filepath))
-            audio['title'] = title; audio['artist'] = artist
-            audio['album'] = album; audio['organization'] = label
-            audio['genre'] = genre; audio['date'] = year
-            audio.save(); return True
-    except Exception: return False
-    return False
+# read_id3 y write_id3_tags viven ahora en core/metadata.py — importadas arriba.
 
 # ─── DISCOGS ───────────────────────────────────────────────────────────────────
 _last_discogs = 0
