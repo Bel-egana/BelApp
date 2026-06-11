@@ -1,0 +1,23 @@
+# ─── Datos sensibles / personales — NUNCA subir, ni en repo privado ──────────
+config.json
+historial.json
+belapp_*.txt
+
+# ─── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# ─── Herramientas de sesión ─────────────────────────────────────────────────
+.superpowers/
+.remember/
+
+# ─── Sistema operativo / editores ───────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
