@@ -15,6 +15,7 @@ import requests
 from core.parsing import parse_filename, parse_folder_name
 from core.genres import format_genre, BEL_GENRES
 from core.organizer import build_path
+from core.config import load_config, save_config
 
 CONFIG_PATH  = Path(__file__).parent / 'config.json'
 HISTORY_PATH = Path(__file__).parent / 'historial.json'
@@ -571,22 +572,13 @@ class BelDJApp(tk.Tk):
 
     # ── CONFIG ────────────────────────────────────────────────────────────────
     def _load_config(self):
-        if CONFIG_PATH.exists():
-            try:
-                data = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
-                if data.get('base_path'):     self.base_path.set(data['base_path'])
-                if data.get('discogs_token'): self.discogs_token.set(data['discogs_token'])
-            except Exception:
-                pass
+        data = load_config(CONFIG_PATH)
+        if data.get('base_path'):     self.base_path.set(data['base_path'])
+        if data.get('discogs_token'): self.discogs_token.set(data['discogs_token'])
 
     def _save_config(self):
-        try:
-            CONFIG_PATH.write_text(
-                json.dumps({'base_path': self.base_path.get(),
-                            'discogs_token': self.discogs_token.get()}, indent=2),
-                encoding='utf-8')
-        except Exception:
-            pass
+        save_config(CONFIG_PATH, {'base_path': self.base_path.get(),
+                                  'discogs_token': self.discogs_token.get()})
 
     def _on_close(self):
         self._save_config()
