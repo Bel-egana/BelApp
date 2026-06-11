@@ -9,7 +9,6 @@ from urllib.parse import quote
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from datetime import datetime
-import requests
 
 # Lógica pura, separada en el paquete core/ (testeada en tests/)
 from core.parsing import parse_filename, parse_folder_name
@@ -18,12 +17,12 @@ from core.organizer import build_path
 from core.config import load_config, save_config
 from core.metadata import (MUTAGEN_OK, is_audio, is_image, read_id3,
                            write_id3_tags)
+from core.discogs import discogs_search, parse_discogs_result
 
 CONFIG_PATH  = Path(__file__).parent / 'config.json'
 HISTORY_PATH = Path(__file__).parent / 'historial.json'
 
 # ─── CONSTANTES ────────────────────────────────────────────────────────────────
-DISCOGS_BASE = 'https://api.discogs.com'
 MAX_ITEMS    = 25   # Tope de ítems por tanda: evita freezes al leer tags y mantiene
                     # el flujo de validación manejable. Cambialo a gusto.
 
@@ -60,39 +59,7 @@ def lighten(hex_color, amount=0.18):
 # read_id3 y write_id3_tags viven ahora en core/metadata.py — importadas arriba.
 
 # ─── DISCOGS ───────────────────────────────────────────────────────────────────
-_last_discogs = 0
-
-def discogs_search(query, token, limit=10):
-    global _last_discogs
-    wait = max(0, 1.1 - (time.time() - _last_discogs))
-    if wait > 0: time.sleep(wait)
-    _last_discogs = time.time()
-    headers = {'User-Agent': 'BelApp/1.0',
-               'Authorization': f'Discogs token={token}'}
-    r = requests.get(f'{DISCOGS_BASE}/database/search',
-                     params={'q': query, 'type': 'release', 'per_page': limit},
-                     headers=headers, timeout=12)
-    r.raise_for_status()
-    return r.json().get('results', [])
-
-def parse_discogs_result(res):
-    genres = res.get('genre') or []
-    styles = res.get('style') or []
-    labels = res.get('label') or []
-    year   = str(res.get('year', '') or '')[:4]
-    title  = res.get('title', '')
-    genre_raw = styles[0] if styles else (genres[0] if genres else '')
-    genre = format_genre(genre_raw) or genre_raw
-    label = labels[0] if labels else ''
-    label = re.sub(r'\s*[-–]\s*\w*\d+\w*$', '', label).strip()
-    artist = ''
-    if ' - ' in title:
-        parts = title.split(' - ', 1)
-        artist = parts[0].strip()
-        title  = parts[1].strip()
-    return {'artist': artist, 'title': title, 'genre': genre,
-            'label': label, 'year': year,
-            'format': ', '.join(res.get('format') or [])}
+# discogs_search y parse_discogs_result viven ahora en core/discogs.py.
 
 # ─── APP ───────────────────────────────────────────────────────────────────────
 class BelDJApp(tk.Tk):
