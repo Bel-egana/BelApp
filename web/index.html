@@ -36,7 +36,47 @@
 <main>
   <section id="view-cargar" class="view">
     <h1>Cargar tracks</h1>
-    <p class="placeholder-note">Vista en construcción — Task 2</p>
+
+    <div class="cfg-row card">
+      <span class="lbl">Carpeta base</span>
+      <input type="text" id="base-path" spellcheck="false">
+      <button class="btn btn-ghost" id="btn-pick-base">Cambiar</button>
+    </div>
+
+    <div class="cfg-row card">
+      <span class="lbl">Discogs token</span>
+      <input type="password" id="token" spellcheck="false">
+      <button class="btn btn-ghost" id="btn-eye" title="Mostrar / ocultar">👁</button>
+      <button class="btn btn-purple" id="btn-get-token">🔑 Obtener token</button>
+    </div>
+
+    <div class="load-actions">
+      <button class="btn btn-accent" id="btn-add-tracks">+ Tracks sueltos</button>
+      <button class="btn btn-purple" id="btn-add-album">+ Carpeta EP / Album</button>
+      <button class="btn btn-info" id="btn-scan">📂 Escanear carpeta</button>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost danger" id="btn-clear">Limpiar</button>
+    </div>
+
+    <div class="card table-card grow">
+      <table id="tbl-load">
+        <thead>
+          <tr><th style="width:80px">Tipo</th><th>Nombre</th>
+              <th style="width:220px">Artista detectado</th>
+              <th style="width:170px">Tags</th><th style="width:34px"></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="load-empty" class="placeholder-note" style="padding:14px">
+        Cargá tus tracks o carpetas de EP/Album. Después buscás en Discogs,
+        elegís el resultado correcto y confirmás.</p>
+    </div>
+
+    <div class="bottom-bar">
+      <span id="load-count" class="muted">Ningún ítem cargado</span>
+      <span id="load-msg" class="msg"></span>
+      <button class="btn btn-accent" id="btn-continue" disabled>Continuar ▸</button>
+    </div>
   </section>
 
   <section id="view-buscar" class="view">

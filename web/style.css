@@ -148,6 +148,45 @@ input[type="text"], select {
 }
 input[type="text"]:focus, select:focus { border-color: var(--accent); }
 
+/* ── Vista Cargar ────────────────────────────────────────── */
+.cfg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cfg-row .lbl { color: var(--muted); font-size: 12px; min-width: 96px; }
+.cfg-row input { flex: 1; }
+#base-path { color: var(--accent); }
+#token { color: var(--purple); letter-spacing: 2px; }
+
+.load-actions { display: flex; gap: 8px; margin: 6px 0 14px; }
+.spacer { flex: 1; }
+.danger { color: var(--accent2); }
+
+.table-card { padding: 0; overflow: auto; }
+.grow { flex: 1; min-height: 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; color: var(--muted); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .4px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+tbody tr:hover { background: var(--surface2); }
+
+.t-album { color: var(--purple); }
+.t-dup { color: var(--warning); }
+.t-ok { color: var(--success); }
+.muted { color: var(--muted); }
+.msg { color: var(--warning); font-size: 12.5px; margin-left: 14px; }
+
+.row-x {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; line-height: 1;
+}
+.row-x:hover { color: var(--accent2); }
+
+.bottom-bar { display: flex; align-items: center; margin-top: 14px; }
+.bottom-bar .btn-accent { margin-left: auto; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
