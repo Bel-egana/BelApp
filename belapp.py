@@ -18,6 +18,8 @@ from core.config import load_config, save_config
 from core.metadata import (MUTAGEN_OK, is_audio, is_image, read_id3,
                            write_id3_tags)
 from core.discogs import discogs_search, parse_discogs_result
+from core.history import (build_name_index, find_duplicate, load_history,
+                          save_history)
 
 CONFIG_PATH  = Path(__file__).parent / 'config.json'
 HISTORY_PATH = Path(__file__).parent / 'historial.json'
@@ -645,20 +647,8 @@ class BelDJApp(tk.Tk):
         self._refresh_load()
 
     # ── DUPLICADOS ────────────────────────────────────────────────────────────
-    @staticmethod
-    def _norm(s):
-        """Normaliza un nombre para comparar (minúsculas, solo alfanumérico)."""
-        return re.sub(r'[^a-z0-9]+', '', str(s).lower())
-
     def _hist_name_index(self):
-        """Dict {nombre_normalizado: entrada} de todo lo que ya está en el historial."""
-        idx = {}
-        for h in self.history:
-            dest = h.get('destino', '')
-            if not dest: continue
-            key = self._norm(Path(dest).stem)
-            if key: idx.setdefault(key, h)
-        return idx
+        return build_name_index(self.history)
 
     def _item_filenames(self, item):
         if item['type'] == 'track':
@@ -668,12 +658,8 @@ class BelDJApp(tk.Tk):
     def _find_duplicate(self, item, idx=None):
         """Devuelve la entrada de historial coincidente, o None."""
         if not self.history: return None
-        idx = idx if idx is not None else self._hist_name_index()
-        for n in self._item_filenames(item):
-            key = self._norm(Path(n).stem)
-            if key and key in idx:
-                return idx[key]
-        return None
+        idx = idx if idx is not None else build_name_index(self.history)
+        return find_duplicate(self._item_filenames(item), idx)
 
     def _refresh_load(self):
         for r in self.tree_load.get_children():
@@ -1263,21 +1249,10 @@ class BelDJApp(tk.Tk):
         self._refresh_history()
 
     def _load_history(self):
-        if HISTORY_PATH.exists():
-            try:
-                data = json.loads(HISTORY_PATH.read_text(encoding='utf-8'))
-                if isinstance(data, list):
-                    self.history = data
-            except Exception:
-                self.history = []
+        self.history = load_history(HISTORY_PATH)
 
     def _save_history(self):
-        try:
-            HISTORY_PATH.write_text(
-                json.dumps(self.history, ensure_ascii=False, indent=2),
-                encoding='utf-8')
-        except Exception:
-            pass
+        save_history(HISTORY_PATH, self.history)
 
     def _refresh_history(self):
         if not hasattr(self, 'tree_hist'): return
