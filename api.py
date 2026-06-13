@@ -442,3 +442,39 @@ class Api:
         except Exception:
             pass
         return True
+
+    # ── Vista Historial ───────────────────────────────────────────────────────
+    def get_history(self):
+        return load_history(self._history_path)
+
+    def delete_history_entry(self, destino):
+        hist = [h for h in load_history(self._history_path)
+                if h.get('destino', '') != destino]
+        return save_history(self._history_path, hist)
+
+    def clear_history(self):
+        return save_history(self._history_path, [])
+
+    def export_history_csv(self):
+        import csv
+        hist = load_history(self._history_path)
+        if not hist:
+            return {'error': 'No hay historial para exportar.'}
+        result = self._dialog('save', save_filename='belapp_historial.csv',
+                              file_types=('CSV (*.csv)',))
+        if not result:
+            return None
+        path = result if isinstance(result, str) else result[0]
+        try:
+            with open(path, 'w', newline='', encoding='utf-8-sig') as fp:
+                w = csv.writer(fp)
+                w.writerow(['Fecha', 'Artista', 'Track', 'Género',
+                            'Sello', 'Año', 'Destino'])
+                for h in hist:
+                    w.writerow([h.get('fecha', ''), h.get('artista', ''),
+                                h.get('track', ''), h.get('genero', ''),
+                                h.get('sello', ''), h.get('año', ''),
+                                h.get('destino', '')])
+            return {'path': path}
+        except Exception as e:
+            return {'error': str(e)}

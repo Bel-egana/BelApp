@@ -294,3 +294,38 @@ def test_get_period_count(tmp_path):
     api.move_items([_track_item(src)], str(base), "2026_06")
     assert api.get_period_count(str(base), "2026_06") == 1
     assert api.get_period_count(str(base), "2099_99") == 0
+
+
+# ── Vista Historial ───────────────────────────────────────────────────────────
+
+def test_get_history_devuelve_lo_guardado(tmp_path):
+    from core.history import save_history
+    hist = tmp_path / "historial.json"
+    save_history(hist, [{"artista": "A", "track": "T", "destino": r"D:\M\A - T.mp3"}])
+    api = Api(config_path=tmp_path / "c.json", history_path=hist)
+    out = api.get_history()
+    assert len(out) == 1 and out[0]["artista"] == "A"
+
+
+def test_get_history_vacio_si_no_existe(tmp_path):
+    assert _api(tmp_path).get_history() == []
+
+
+def test_delete_history_entry_por_destino(tmp_path):
+    from core.history import load_history, save_history
+    hist = tmp_path / "historial.json"
+    save_history(hist, [{"artista": "A", "destino": r"D:\M\A.mp3"},
+                        {"artista": "B", "destino": r"D:\M\B.mp3"}])
+    api = Api(config_path=tmp_path / "c.json", history_path=hist)
+    assert api.delete_history_entry(r"D:\M\A.mp3") is True
+    rest = load_history(hist)
+    assert len(rest) == 1 and rest[0]["artista"] == "B"
+
+
+def test_clear_history(tmp_path):
+    from core.history import load_history, save_history
+    hist = tmp_path / "historial.json"
+    save_history(hist, [{"artista": "A", "destino": r"D:\M\A.mp3"}])
+    api = Api(config_path=tmp_path / "c.json", history_path=hist)
+    assert api.clear_history() is True
+    assert load_history(hist) == []

@@ -526,6 +526,91 @@ async function refreshPeriodCount() {
 
 $('#period').addEventListener('change', refreshPeriodCount);
 
+/* ── Vista Historial ─────────────────────────────────────── */
+let history = [];
+let ctxDestino = '';
+
+async function loadHistory() {
+  history = await api().get_history();
+  renderHistory();
+}
+
+function renderHistory() {
+  const flt = $('#hist-search').value.trim().toLowerCase();
+  const tbody = $('#tbl-hist tbody');
+  tbody.innerHTML = '';
+  let shown = 0;
+
+  history.slice().reverse().forEach((h) => {
+    if (flt) {
+      const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
+        .join(' ').toLowerCase();
+      if (!blob.includes(flt)) return;
+    }
+    const tr = document.createElement('tr');
+    [h.fecha, h.artista, h.track, h.genero, h.sello, h['año'], h.destino]
+      .forEach((v) => {
+        const td = document.createElement('td');
+        td.textContent = v || '';
+        tr.appendChild(td);
+      });
+    tr.title = h.destino || '';
+    tr.addEventListener('dblclick', () => api().open_in_explorer(h.destino));
+    tr.addEventListener('contextmenu', (e) => showCtxMenu(e, h.destino));
+    tbody.appendChild(tr);
+    shown++;
+  });
+
+  $('#hist-empty').style.display = history.length ? 'none' : 'block';
+  const total = history.length;
+  $('#hist-count').textContent = total === 0 ? 'Sin registros aún'
+    : (flt ? `${shown} de ${total} registros` : `${total} registro${total !== 1 ? 's' : ''}`);
+}
+
+$('#hist-search').addEventListener('input', renderHistory);
+
+function showCtxMenu(e, destino) {
+  e.preventDefault();
+  ctxDestino = destino;
+  const m = $('#ctx-menu');
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  m.classList.add('show');
+}
+
+document.addEventListener('click', () => $('#ctx-menu').classList.remove('show'));
+
+$('#ctx-menu').addEventListener('click', async (e) => {
+  const act = e.target.dataset.act;
+  if (!act || !ctxDestino) return;
+  if (act === 'open') api().open_in_explorer(ctxDestino);
+  else if (act === 'copy') navigator.clipboard.writeText(ctxDestino);
+  else if (act === 'del') {
+    if (await confirmModal('Eliminar registro',
+        'Quitar este registro del historial?\nNO borra ni mueve el archivo de música.')) {
+      await api().delete_history_entry(ctxDestino);
+      await loadHistory();
+    }
+  }
+});
+
+$('#btn-hist-clear').addEventListener('click', async () => {
+  if (!history.length) return;
+  if (await confirmModal('Limpiar historial',
+      `¿Borrar los ${history.length} registros del historial?\n\n` +
+      'Esto NO borra ni mueve ningún archivo de música, solo el registro.')) {
+    await api().clear_history();
+    await loadHistory();
+  }
+});
+
+$('#btn-hist-csv').addEventListener('click', async () => {
+  const res = await api().export_history_csv();
+  if (res && res.error) await confirmModal('Exportar', res.error);
+});
+
+document.getElementById('nav-historial').addEventListener('click', loadHistory);
+
 /* ── Handshake con Python ────────────────────────────────── */
 window.addEventListener('pywebviewready', async () => {
   try {

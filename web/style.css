@@ -276,6 +276,25 @@ tbody tr:hover { background: var(--surface2); }
 .period-box { display: flex; align-items: center; gap: 8px; margin-left: 16px; }
 #period { width: 90px; color: var(--accent); }
 
+/* ── Vista Historial ─────────────────────────────────────── */
+.hist-head { display: flex; align-items: center; gap: 10px; }
+#hist-search { flex: 1; max-width: 420px; }
+#tbl-hist td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+#tbl-hist tbody tr { cursor: default; }
+
+.ctx-menu {
+  display: none; position: fixed; z-index: 200;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r-btn); padding: 5px; min-width: 200px;
+}
+.ctx-menu.show { display: block; }
+.ctx-item {
+  padding: 8px 12px; border-radius: 7px; font-size: 13px; cursor: pointer;
+}
+.ctx-item:hover { background: var(--bg); }
+.ctx-item.danger { color: var(--accent2); }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
 /* ── Modal (reemplaza los diálogos nativos) ──────────────── */
 .modal-overlay {
   display: none; position: fixed; inset: 0;

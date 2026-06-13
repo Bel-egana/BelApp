@@ -167,9 +167,40 @@
   </section>
 
   <section id="view-historial" class="view">
-    <h1>Historial</h1>
-    <p class="placeholder-note">Vista en construcción — Task 5</p>
+    <div class="hist-head">
+      <h1 style="margin:0">Historial</h1>
+      <input type="text" id="hist-search" spellcheck="false"
+             placeholder="Buscar por artista, track, género, sello…">
+      <span class="spacer"></span>
+      <button class="btn btn-info" id="btn-hist-csv">⬇ Exportar CSV</button>
+      <button class="btn btn-ghost danger" id="btn-hist-clear">🗑 Limpiar</button>
+    </div>
+    <p class="small muted" style="margin:8px 0">
+      Doble-click en una fila o click derecho para abrir la carpeta / copiar / eliminar.</p>
+
+    <div class="card table-card grow">
+      <table id="tbl-hist">
+        <thead>
+          <tr><th style="width:120px">Fecha</th><th style="width:150px">Artista</th>
+              <th>Track</th><th style="width:160px">Género</th>
+              <th style="width:130px">Sello</th><th style="width:52px">Año</th>
+              <th>Destino</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="hist-empty" class="placeholder-note" style="padding:14px">Sin registros aún.</p>
+    </div>
+    <div class="bottom-bar">
+      <span id="hist-count" class="muted small" style="margin:0"></span>
+    </div>
   </section>
+
+  <div id="ctx-menu" class="ctx-menu">
+    <div class="ctx-item" data-act="open">📂 Abrir en carpeta</div>
+    <div class="ctx-item" data-act="copy">📋 Copiar ruta destino</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" data-act="del">🗑 Eliminar del historial</div>
+  </div>
 
   <footer id="status">Conectando con Python…</footer>
 </main>
