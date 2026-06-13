@@ -17,7 +17,14 @@ if __name__ == '__main__':
         'BelApp — Music Organizer',
         str(BASE / 'web' / 'index.html'),
         js_api=api,
-        width=1200, height=760, min_size=(980, 620),
+        width=1100, height=700, min_size=(860, 560),
         background_color='#0c0c10')
     api.set_window(window)
-    webview.start()
+
+    def _on_start():
+        try:
+            window.maximize()
+        except Exception:
+            pass
+
+    webview.start(_on_start)

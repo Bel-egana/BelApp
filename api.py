@@ -455,26 +455,39 @@ class Api:
     def clear_history(self):
         return save_history(self._history_path, [])
 
-    def export_history_csv(self):
-        import csv
+    def _write_history_xlsx(self, path, hist):
+        """Escribe el historial como Excel prolijo (encabezados, anchos, fila fija)."""
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Historial'
+        ws.append(['Fecha', 'Artista', 'Track', 'Género', 'Sello', 'Año', 'Destino'])
+        for h in hist:
+            ws.append([h.get('fecha', ''), h.get('artista', ''), h.get('track', ''),
+                       h.get('genero', ''), h.get('sello', ''), h.get('año', ''),
+                       h.get('destino', '')])
+        for i, w in enumerate([16, 24, 34, 24, 18, 7, 60], start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        ws.freeze_panes = 'A2'
+        wb.save(path)
+
+    def export_history(self):
         hist = load_history(self._history_path)
         if not hist:
             return {'error': 'No hay historial para exportar.'}
-        result = self._dialog('save', save_filename='belapp_historial.csv',
-                              file_types=('CSV (*.csv)',))
+        result = self._dialog('save', save_filename='belapp_historial.xlsx',
+                              file_types=('Excel (*.xlsx)',))
         if not result:
             return None
         path = result if isinstance(result, str) else result[0]
+        if not path.lower().endswith('.xlsx'):
+            path += '.xlsx'
         try:
-            with open(path, 'w', newline='', encoding='utf-8-sig') as fp:
-                w = csv.writer(fp)
-                w.writerow(['Fecha', 'Artista', 'Track', 'Género',
-                            'Sello', 'Año', 'Destino'])
-                for h in hist:
-                    w.writerow([h.get('fecha', ''), h.get('artista', ''),
-                                h.get('track', ''), h.get('genero', ''),
-                                h.get('sello', ''), h.get('año', ''),
-                                h.get('destino', '')])
+            self._write_history_xlsx(path, hist)
             return {'path': path}
         except Exception as e:
             return {'error': str(e)}

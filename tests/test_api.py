@@ -329,3 +329,16 @@ def test_clear_history(tmp_path):
     api = Api(config_path=tmp_path / "c.json", history_path=hist)
     assert api.clear_history() is True
     assert load_history(hist) == []
+
+
+def test_write_history_xlsx(tmp_path):
+    from openpyxl import load_workbook
+    api = _api(tmp_path)
+    out = tmp_path / "h.xlsx"
+    api._write_history_xlsx(str(out), [
+        {"fecha": "01/01/2026", "artista": "A", "track": "T",
+         "genero": "Trance", "sello": "S", "año": "2020", "destino": "D:/x.mp3"}])
+    ws = load_workbook(out).active
+    assert ws["A1"].value == "Fecha"      # encabezado
+    assert ws["B2"].value == "A"          # artista de la 1ra fila
+    assert ws["C2"].value == "T"

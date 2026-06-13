@@ -552,9 +552,9 @@ function renderHistory() {
       .forEach((v) => {
         const td = document.createElement('td');
         td.textContent = v || '';
+        td.title = v || '';        // ver texto completo al pasar el mouse
         tr.appendChild(td);
       });
-    tr.title = h.destino || '';
     tr.addEventListener('dblclick', () => api().open_in_explorer(h.destino));
     tr.addEventListener('contextmenu', (e) => showCtxMenu(e, h.destino));
     tbody.appendChild(tr);
@@ -605,8 +605,13 @@ $('#btn-hist-clear').addEventListener('click', async () => {
 });
 
 $('#btn-hist-csv').addEventListener('click', async () => {
-  const res = await api().export_history_csv();
-  if (res && res.error) await confirmModal('Exportar', res.error);
+  const res = await api().export_history();
+  if (!res) return;                                   // canceló el diálogo
+  if (res.error) { await confirmModal('Exportar', res.error); return; }
+  if (await confirmModal('Exportado ✓',
+      'Historial guardado en:\n' + res.path + '\n\n¿Abrir la carpeta?')) {
+    api().open_in_explorer(res.path);
+  }
 });
 
 document.getElementById('nav-historial').addEventListener('click', loadHistory);

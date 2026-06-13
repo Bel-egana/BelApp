@@ -80,6 +80,7 @@ main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .view {
@@ -88,6 +89,7 @@ main {
   flex-direction: column;
   padding: 22px 26px;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 .view.active { display: flex; }
@@ -155,7 +157,7 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 #base-path { color: var(--accent); }
 #token { color: var(--purple); letter-spacing: 2px; }
 
-.load-actions { display: flex; gap: 8px; margin: 6px 0 14px; }
+.load-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
 .spacer { flex: 1; }
 .danger { color: var(--accent2); }
 
@@ -184,7 +186,7 @@ tbody tr:hover { background: var(--surface2); }
 }
 .row-x:hover { color: var(--accent2); }
 
-.bottom-bar { display: flex; align-items: center; margin-top: 14px; }
+.bottom-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 .bottom-bar .btn-accent { margin-left: auto; }
 
 /* ── Vista Buscar & Confirmar ────────────────────────────── */
@@ -248,7 +250,7 @@ tbody tr:hover { background: var(--surface2); }
 #dest-preview { margin: 0; }
 #dest-preview.ready { color: var(--accent); }
 
-.buscar-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.buscar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 
 .t-warn { color: var(--warning); }
 .t-flag { color: var(--accent2); }
@@ -277,9 +279,12 @@ tbody tr:hover { background: var(--surface2); }
 #period { width: 90px; color: var(--accent); }
 
 /* ── Vista Historial ─────────────────────────────────────── */
-.hist-head { display: flex; align-items: center; gap: 10px; }
+.hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 #hist-search { flex: 1; max-width: 420px; }
-#tbl-hist td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+#tbl-hist { table-layout: fixed; width: 100%; }
+#tbl-hist th, #tbl-hist td {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 #tbl-hist tbody tr { cursor: default; }
 
 .ctx-menu {
