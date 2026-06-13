@@ -106,6 +106,15 @@ python main.py
 > La interfaz moderna (web-style, sobre PyWebView) se ejecuta con `python main.py`.
 > La versión original en tkinter (`belapp.py`) se mantiene como referencia.
 
+### Ejecutable standalone (sin instalar nada)
+Se empaqueta con PyInstaller en un único `.exe` que corre en cualquier Windows
+sin Python ni dependencias instaladas:
+```bash
+pyinstaller --noconfirm --onefile --windowed --name BelApp --add-data "web;web" main.py
+```
+El resultado queda en `dist/BelApp.exe`. La configuración (`config.json`) y el
+historial (`historial.json`) se guardan junto al ejecutable.
+
 ### Configuración inicial (una sola vez)
 1. Click en **🔑 Obtener token** → se abre Discogs en el navegador.
 2. Generá un token (*Settings → Developers → Generate new token*) y pegalo en el campo **DISCOGS TOKEN**.
