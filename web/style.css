@@ -187,6 +187,72 @@ tbody tr:hover { background: var(--surface2); }
 .bottom-bar { display: flex; align-items: center; margin-top: 14px; }
 .bottom-bar .btn-accent { margin-left: auto; }
 
+/* ── Vista Buscar & Confirmar ────────────────────────────── */
+.buscar-layout { display: flex; gap: 14px; flex: 1; min-height: 0; }
+
+.items-panel {
+  width: 212px; min-width: 212px;
+  display: flex; flex-direction: column;
+  padding: 12px;
+}
+.lbl-sm {
+  color: var(--muted); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .4px; margin-bottom: 8px;
+}
+#item-list {
+  list-style: none; flex: 1; overflow-y: auto; min-height: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+#item-list li {
+  padding: 6px 8px; border-radius: 8px; font-size: 12.5px;
+  cursor: pointer; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+#item-list li:hover { background: var(--surface2); }
+#item-list li.cur { background: var(--surface2); outline: 1px solid var(--border); }
+.legend {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 11px; margin-top: 10px;
+}
+
+.buscar-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.buscar-main h2 {
+  font-size: 15px; font-weight: 600; color: var(--accent);
+  margin-bottom: 12px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.search-row input { flex: 1; }
+.btn-beatport { background: #a9ff1f; color: #0c0c10; font-weight: 600; }
+
+.small { font-size: 12px; min-height: 18px; margin-bottom: 8px; }
+
+#tbl-results tbody tr { cursor: pointer; }
+#tbl-results tbody tr.sel {
+  background: rgba(232, 255, 0, .07);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.datos-card { margin-top: 12px; }
+.datos-row { display: flex; gap: 16px; margin-bottom: 8px; }
+.datos-row label {
+  display: flex; flex-direction: column; gap: 4px;
+  color: var(--muted); font-size: 11px; text-transform: uppercase;
+}
+#conf-genre { width: 240px; }
+#conf-label { width: 190px; }
+#conf-year  { width: 80px; }
+#dest-preview { margin: 0; }
+#dest-preview.ready { color: var(--accent); }
+
+.buscar-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+
+.t-warn { color: var(--warning); }
+.t-flag { color: var(--accent2); }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }

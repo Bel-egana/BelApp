@@ -101,3 +101,53 @@ def test_load_album_folder_sin_audio_da_error(tmp_path):
     vacia.mkdir()
     out = api.load_album_folder(str(vacia), [], 0)
     assert "error" in out
+
+
+# ── Vista Buscar ──────────────────────────────────────────────────────────────
+
+def test_search_discogs_sin_token_da_error(tmp_path):
+    api = _api(tmp_path)
+    out = api.search_discogs("algo", "")
+    assert "error" in out
+
+
+def test_search_discogs_parsea_y_reporta_fallback(tmp_path, monkeypatch):
+    import api as api_mod
+    api = _api(tmp_path)
+    api.save_config_values("D:/M", "tok")
+    monkeypatch.setattr(
+        api_mod.discogs_core, "search_with_fallback",
+        lambda q, t, fallback="", limit=10: (
+            [{"title": "Artista - Tema", "year": 2020,
+              "label": ["Sello"], "style": ["Trance"]}], True))
+    out = api.search_discogs("query completa", "Artista")
+    assert out["used_fallback"] is True
+    assert out["results"][0]["artist"] == "Artista"
+    assert out["results"][0]["genre"] == "Trance"
+
+
+def test_search_discogs_error_de_red_devuelve_error(tmp_path, monkeypatch):
+    import api as api_mod
+    api = _api(tmp_path)
+    api.save_config_values("D:/M", "tok")
+
+    def boom(*a, **k):
+        raise RuntimeError("sin red")
+
+    monkeypatch.setattr(api_mod.discogs_core, "search_with_fallback", boom)
+    out = api.search_discogs("q", "")
+    assert "sin red" in out["error"]
+
+
+def test_preview_destination(tmp_path):
+    api = _api(tmp_path)
+    p = api.preview_destination("D:/M", "Trance", "Iboga", "2012", "t.mp3")
+    assert "Trance" in p and "Iboga" in p and "2012" in p
+    assert p.endswith("t.mp3")
+
+
+def test_get_genres_devuelve_las_categorias(tmp_path):
+    api = _api(tmp_path)
+    genres = api.get_genres()
+    assert "Trance" in genres
+    assert "Melodic Techno & Techno" in genres

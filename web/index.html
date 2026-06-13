@@ -80,8 +80,64 @@
   </section>
 
   <section id="view-buscar" class="view">
-    <h1>Buscar &amp; Confirmar</h1>
-    <p class="placeholder-note">Vista en construcción — Task 3</p>
+    <div class="buscar-layout">
+
+      <aside class="items-panel card">
+        <div class="lbl-sm">Ítems</div>
+        <ul id="item-list"></ul>
+        <div class="legend">
+          <span class="t-ok">✓ Confirmado</span>
+          <span class="t-warn">⧖ Pendiente</span>
+          <span class="t-flag">✗ Sin match / revisar</span>
+        </div>
+      </aside>
+
+      <div class="buscar-main">
+        <h2 id="cur-title">← Seleccioná un ítem</h2>
+
+        <div class="search-row">
+          <input type="text" id="search-q" spellcheck="false"
+                 placeholder="Buscar en Discogs…">
+          <button class="btn btn-accent" id="btn-search">🔍 Buscar</button>
+          <button class="btn btn-beatport" id="btn-beatport">🔊 Beatport</button>
+        </div>
+        <div id="search-status" class="small muted"></div>
+
+        <div class="card table-card grow">
+          <table id="tbl-results">
+            <thead>
+              <tr><th>Título</th><th>Artista</th><th>Género</th><th>Sello</th>
+                  <th style="width:48px">Año</th><th style="width:92px">Formato</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card datos-card">
+          <div class="lbl-sm">Datos para mover</div>
+          <div class="datos-row">
+            <label>Género
+              <input type="text" id="conf-genre" list="genres-dl" spellcheck="false">
+              <datalist id="genres-dl"></datalist>
+            </label>
+            <label>Sello <input type="text" id="conf-label" spellcheck="false"></label>
+            <label>Año <input type="text" id="conf-year" spellcheck="false"></label>
+          </div>
+          <div id="dest-preview" class="small muted">→ completá género, sello y año</div>
+        </div>
+
+        <div class="buscar-actions">
+          <button class="btn btn-ghost danger" id="btn-discard">🗑 Descartar</button>
+          <button class="btn btn-pink" id="btn-flag">✗ Sin match</button>
+          <button class="btn btn-info" id="btn-use">✓ Usar</button>
+          <button class="btn btn-accent" id="btn-confirm">✓ Confirmar</button>
+          <span class="spacer"></span>
+          <span id="progress" class="muted small"></span>
+          <button class="btn btn-success" id="btn-move" disabled>▶ Mover</button>
+        </div>
+      </div>
+
+    </div>
   </section>
 
   <section id="view-resultado" class="view">

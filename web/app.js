@@ -161,7 +161,228 @@ $('#btn-continue').addEventListener('click', async () => {
   }
   await saveConfig();
   showView('buscar');
+  enterBuscar(true);
 });
+
+/* ── Vista Buscar & Confirmar ────────────────────────────── */
+let curIdx = -1;
+let results = [];
+let selResult = -1;
+let searchSeq = 0;
+
+function setSearchStatus(text, cls) {
+  const el = $('#search-status');
+  el.textContent = text;
+  el.className = 'small ' + (cls || 'muted');
+}
+
+function enterBuscar(reset) {
+  renderItemList();
+  if (reset || curIdx < 0 || curIdx >= state.items.length) {
+    const i = nextPending();
+    if (i >= 0) loadItem(i);
+    else if (state.items.length) loadItem(0);
+  }
+}
+
+function nextPending() {
+  return state.items.findIndex((it) => it.status === 'pending');
+}
+
+function renderItemList() {
+  const ul = $('#item-list');
+  ul.innerHTML = '';
+  state.items.forEach((it, idx) => {
+    let prefix = '⧖ ', cls = 't-warn';
+    if (it.status === 'confirmed') { prefix = '✓ '; cls = 't-ok'; }
+    else if (it.flag) { prefix = '✗ '; cls = 't-flag'; }
+    const li = document.createElement('li');
+    li.className = cls + (idx === curIdx ? ' cur' : '');
+    li.textContent = prefix + it.name;
+    li.title = it.name;
+    li.addEventListener('click', () => loadItem(idx));
+    ul.appendChild(li);
+  });
+
+  const confirmed = state.items.filter((i) => i.status === 'confirmed').length;
+  const flagged = state.items.filter(
+    (i) => i.flag && i.status === 'pending').length;
+  let txt = `${confirmed}/${state.items.length} confirmados`;
+  if (flagged) txt += `  ·  ✗ ${flagged} para revisar`;
+  $('#progress').textContent = txt;
+  $('#btn-move').disabled = confirmed === 0;
+}
+
+function loadItem(idx) {
+  if (idx < 0 || idx >= state.items.length) return;
+  curIdx = idx;
+  const it = state.items[idx];
+
+  const tipo = it.type === 'album' ? '📁 EP/Album' : '🎵 Track';
+  const dup = it.is_dup ? `    ⚠ YA EN HISTORIAL (${it.dup_fecha})` : '';
+  const h2 = $('#cur-title');
+  h2.textContent = `${tipo}: ${it.name}${dup}`;
+  h2.style.color = it.is_dup ? 'var(--warning)' : 'var(--accent)';
+
+  const titlePart = it.type === 'album' ? (it.album || it.name) : (it.title || it.name);
+  $('#search-q').value = `${it.artist} ${titlePart}`.trim();
+
+  $('#conf-genre').value = it.conf.genre || '';
+  $('#conf-label').value = it.conf.label || '';
+  $('#conf-year').value = it.conf.year || '';
+  updatePreview();
+
+  $('#tbl-results tbody').innerHTML = '';
+  results = []; selResult = -1;
+  renderItemList();
+  doSearch();
+}
+
+async function doSearch() {
+  const q = $('#search-q').value.trim();
+  if (!q || curIdx < 0) return;
+  const it = state.items[curIdx];
+  const seq = ++searchSeq;
+  setSearchStatus('⧖ Buscando…');
+  $('#tbl-results tbody').innerHTML = '';
+  results = []; selResult = -1;
+
+  const res = await api().search_discogs(q, it.artist || '');
+  if (seq !== searchSeq) return;            // llegó tarde: hay una búsqueda más nueva
+
+  if (res.error) { setSearchStatus('✗ Error: ' + res.error, 't-flag'); return; }
+
+  if (!res.results.length) {
+    if (!it.flag) { it.flag = 'noresult'; renderItemList(); }
+    setSearchStatus('✗ Sin resultados — marcado para revisar (editá la búsqueda o probá Beatport)', 't-flag');
+    return;
+  }
+  if (it.flag === 'noresult') { it.flag = ''; renderItemList(); }
+
+  results = res.results;
+  const fb = res.used_fallback ? ' (reintentó solo con el artista)' : '';
+  setSearchStatus(`✓ ${results.length} resultados${fb} — seleccioná uno y confirmá`, 't-ok');
+  renderResults();
+  selectResult(0);
+}
+
+function renderResults() {
+  const tbody = $('#tbl-results tbody');
+  tbody.innerHTML = '';
+  results.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    [r.title, r.artist, r.genre, r.label, r.year, r.format].forEach((v) => {
+      const td = document.createElement('td');
+      td.textContent = v || '';
+      tr.appendChild(td);
+    });
+    tr.addEventListener('click', () => selectResult(i));
+    tr.addEventListener('dblclick', () => confirmCurrent());
+    tbody.appendChild(tr);
+  });
+}
+
+function selectResult(i) {
+  if (i < 0 || i >= results.length) return;
+  selResult = i;
+  document.querySelectorAll('#tbl-results tbody tr').forEach(
+    (tr, j) => tr.classList.toggle('sel', j === i));
+  const r = results[i];
+  $('#conf-genre').value = r.genre || '';
+  $('#conf-label').value = r.label || '';
+  $('#conf-year').value = r.year || '';
+  updatePreview();
+}
+
+async function updatePreview() {
+  const el = $('#dest-preview');
+  if (curIdx < 0) return;
+  const g = $('#conf-genre').value.trim();
+  const l = $('#conf-label').value.trim();
+  const y = $('#conf-year').value.trim();
+  if (g && l && y) {
+    const dest = await api().preview_destination(
+      $('#base-path').value.trim(), g, l, y, state.items[curIdx].name);
+    el.textContent = '→ ' + dest;
+    el.className = 'small ready';
+  } else {
+    el.textContent = '→ completá género, sello y año';
+    el.className = 'small muted';
+  }
+}
+
+async function confirmCurrent() {
+  if (curIdx < 0) return;
+  const it = state.items[curIdx];
+  const g = $('#conf-genre').value.trim();
+  const l = $('#conf-label').value.trim();
+  const y = $('#conf-year').value.trim();
+  if (!g || !l || !y) {
+    setSearchStatus('✗ Completá género, sello y año antes de confirmar', 't-flag');
+    return;
+  }
+  it.conf = { genre: g, label: l, year: y };
+  it.status = 'confirmed';
+  it.flag = '';
+  it.destination = await api().preview_destination(
+    $('#base-path').value.trim(), g, l, y, it.name);
+  renderItemList();
+  const nxt = nextPending();
+  if (nxt >= 0) loadItem(nxt);
+  else setSearchStatus('✓ Todos los ítems procesados — dale a ▶ Mover', 't-ok');
+}
+
+$('#btn-search').addEventListener('click', doSearch);
+$('#search-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+$('#btn-beatport').addEventListener('click', () => {
+  const q = $('#search-q').value.trim();
+  if (q) api().open_beatport(q);
+});
+
+$('#btn-use').addEventListener('click', () => {
+  if (selResult >= 0) selectResult(selResult);
+  else setSearchStatus('✗ Seleccioná un resultado primero', 't-flag');
+});
+
+$('#btn-confirm').addEventListener('click', confirmCurrent);
+
+$('#btn-discard').addEventListener('click', () => {
+  if (curIdx < 0) return;
+  const id = state.items[curIdx].id;
+  state.items = state.items.filter((i) => i.id !== id);
+  renderLoadTable();   // mantener sincronizada la lista de Cargar
+
+  if (!state.items.length) {
+    curIdx = -1;
+    renderItemList();
+    $('#cur-title').textContent = '← No quedan ítems';
+    $('#cur-title').style.color = 'var(--muted)';
+    $('#search-q').value = '';
+    $('#tbl-results tbody').innerHTML = '';
+    results = []; selResult = -1;
+    setSearchStatus('', 'muted');
+    return;
+  }
+  loadItem(Math.min(curIdx, state.items.length - 1));
+});
+
+$('#btn-flag').addEventListener('click', () => {
+  if (curIdx < 0) return;
+  const it = state.items[curIdx];
+  it.flag = it.flag ? '' : 'review';
+  renderItemList();
+});
+
+['#conf-genre', '#conf-label', '#conf-year'].forEach((sel) => {
+  $(sel).addEventListener('input', updatePreview);
+});
+
+$('#btn-move').addEventListener('click', () => {
+  setSearchStatus('▶ Mover llega en la próxima tarea 😉', 'muted');
+});
+
+document.getElementById('nav-buscar').addEventListener('click', () => enterBuscar(false));
 
 /* ── Handshake con Python ────────────────────────────────── */
 window.addEventListener('pywebviewready', async () => {
@@ -169,6 +390,9 @@ window.addEventListener('pywebviewready', async () => {
     const cfg = await api().get_config();
     $('#base-path').value = cfg.base_path;
     $('#token').value = cfg.discogs_token;
+    const genres = await api().get_genres();
+    $('#genres-dl').innerHTML =
+      genres.map((g) => `<option value="${escapeHtml(g)}">`).join('');
     $('#status').textContent =
       'Conectado · Carpeta base: ' + cfg.base_path +
       (cfg.discogs_token ? ' · Token ✓' : ' · Sin token');

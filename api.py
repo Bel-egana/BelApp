@@ -8,11 +8,14 @@ Toda la lógica real vive en core/ — esto es pegamento fino y testeable
 """
 import webbrowser
 from pathlib import Path
+from urllib.parse import quote
 
+from core import discogs as discogs_core
 from core.config import load_config, save_config
-from core.genres import format_genre
+from core.genres import BEL_GENRES, format_genre
 from core.history import build_name_index, find_duplicate, load_history
 from core.metadata import is_audio, read_id3
+from core.organizer import build_path
 from core.parsing import parse_filename, parse_folder_name
 
 APP_DIR = Path(__file__).parent
@@ -77,6 +80,34 @@ class Api:
 
     def open_token_page(self):
         webbrowser.open('https://www.discogs.com/settings/developers')
+        return True
+
+    # ── Vista Buscar ──────────────────────────────────────────────────────────
+    def get_genres(self):
+        return list(BEL_GENRES)
+
+    def search_discogs(self, query, artist_fallback=''):
+        """Busca en Discogs con reintento por artista. Nunca lanza: {error} en fallas."""
+        token = load_config(self._config_path).get('discogs_token', '')
+        if not token:
+            return {'error': 'Falta el token de Discogs.'}
+        fallback = ''
+        if artist_fallback and artist_fallback.lower() != query.lower():
+            fallback = artist_fallback
+        try:
+            results, used = discogs_core.search_with_fallback(
+                query, token, fallback=fallback)
+            return {'results': [discogs_core.parse_discogs_result(r)
+                                for r in results],
+                    'used_fallback': used}
+        except Exception as e:
+            return {'error': str(e)}
+
+    def preview_destination(self, base, genre, label, year, name):
+        return str(build_path(base, genre, label, year, name))
+
+    def open_beatport(self, query):
+        webbrowser.open('https://www.beatport.com/search?q=' + quote(query))
         return True
 
     # ── Vista Cargar ──────────────────────────────────────────────────────────
