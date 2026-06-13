@@ -15,6 +15,9 @@ env/
 build/
 dist/
 
+# ─── Preview descartable del ícono ──────────────────────────────────────────
+assets/icon_preview.png
+
 # ─── Herramientas de sesión ─────────────────────────────────────────────────
 .superpowers/
 .remember/

@@ -4,8 +4,8 @@
   --surface: #15151c;
   --surface2: #1d1d26;
   --border: #24242c;
-  --accent: #e8ff00;
-  --accent2: #ff3c6e;
+  --accent: #fee903;   /* amarillo del logo */
+  --accent2: #fc0b91;  /* rosa del logo */
   --text: #e8e8e8;
   --muted: #8a8a98;
   --success: #00ffa3;
@@ -234,7 +234,7 @@ tbody tr:hover { background: var(--surface2); }
 
 #tbl-results tbody tr { cursor: pointer; }
 #tbl-results tbody tr.sel {
-  background: rgba(232, 255, 0, .07);
+  background: rgba(254, 233, 3, .08);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
