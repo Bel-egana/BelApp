@@ -96,13 +96,15 @@ El flujo de trabajo es:
 
 ### Requisitos
 ```bash
-pip install requests mutagen
+pip install requests mutagen pywebview openpyxl
 ```
 
 ### Ejecutar
 ```bash
-python belapp.py
+python main.py
 ```
+> La interfaz moderna (web-style, sobre PyWebView) se ejecuta con `python main.py`.
+> La versión original en tkinter (`belapp.py`) se mantiene como referencia.
 
 ### Configuración inicial (una sola vez)
 1. Click en **🔑 Obtener token** → se abre Discogs en el navegador.
