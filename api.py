@@ -6,15 +6,18 @@ Cada método público es llamable desde JS como
 Toda la lógica real vive en core/ — esto es pegamento fino y testeable
 (se instancia sin ventana; los diálogos nativos requieren set_window).
 """
+import shutil
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
 from core import discogs as discogs_core
 from core.config import load_config, save_config
 from core.genres import BEL_GENRES, format_genre
-from core.history import build_name_index, find_duplicate, load_history
-from core.metadata import is_audio, read_id3
+from core.history import (build_name_index, find_duplicate, load_history,
+                          save_history)
+from core.metadata import is_audio, read_id3, write_id3_tags
 from core.organizer import build_path
 from core.parsing import parse_filename, parse_folder_name
 
@@ -32,6 +35,8 @@ class Api:
         self._history_path = Path(history_path)
         self._window = None
         self._last_move = []
+        self._last_txt = None
+        self._last_base = None
 
     def set_window(self, window):
         """La ventana se inyecta después de crearla (para diálogos nativos)."""
@@ -218,3 +223,222 @@ class Api:
                     existing.add(sub.name)
 
         return {'items': items, 'skipped': skipped, 'capped': capped}
+
+    # ── Vista Resultado: mover / deshacer / período ───────────────────────────
+    def _txt_path(self, base_path, period):
+        name = f"belapp_{(period or 'playlist').strip()}.txt"
+        return Path(base_path) / name
+
+    @staticmethod
+    def _is_path_line(line):
+        return len(line) > 3 and line[1:3] in (':\\', ':/')
+
+    def _append_txt(self, base_path, period, paths):
+        txt = self._txt_path(base_path, period)
+        try:
+            txt.parent.mkdir(parents=True, exist_ok=True)
+            nuevo = not txt.exists() or txt.stat().st_size == 0
+            with open(txt, 'a', encoding='utf-8') as fp:
+                if nuevo:
+                    fp.write(f"BelApp — Período {period}\n")
+                    fp.write('─' * 60 + '\n')
+                for p in paths:
+                    fp.write(p + '\n')
+        except Exception:
+            pass
+        return self.get_period_count(base_path, period)
+
+    def get_period_count(self, base_path, period):
+        txt = self._txt_path(base_path, period)
+        if not txt.exists():
+            return 0
+        try:
+            return sum(1 for ln in txt.read_text(encoding='utf-8').splitlines()
+                       if self._is_path_line(ln))
+        except Exception:
+            return 0
+
+    def move_items(self, items, base_path, period):
+        now = datetime.now().strftime('%d/%m/%Y %H:%M')
+        folders, log, new_hist, txt_paths = set(), [], [], []
+        moved_sources, src_parents = [], set()
+        last_dir = str(base_path)
+        moved_t = moved_a = errors = 0
+        self._last_move = []
+        self._last_txt = str(self._txt_path(base_path, period))
+        self._last_base = str(base_path)
+
+        def L(text, kind):
+            log.append({'text': text, 'kind': kind})
+
+        for it in items:
+            nm = it['name']
+            dest = build_path(base_path, it['genre'], it['label'], it['year'], nm)
+            dest_dir = dest.parent
+            try:
+                if not dest_dir.exists():
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    folders.add(str(dest_dir))
+                    L(f"📁 Carpeta creada: {dest_dir}", 'info')
+                else:
+                    folders.add(str(dest_dir))
+
+                if it['type'] == 'track':
+                    src = Path(it['path'])
+                    if not src.exists():
+                        L(f"✗ No encontrado: {nm}", 'error'); errors += 1; continue
+                    if dest.exists():
+                        L(f"⚠ Ya existe: {nm}", 'warn'); continue
+                    shutil.move(str(src), str(dest))
+                    title = it.get('title') or dest.stem
+                    ok = write_id3_tags(dest, it['artist'], title, '',
+                                        it['label'], it['genre'], it['year'])
+                    L(f"✓ {nm}{' [tags ✓]' if ok else ''}", 'success')
+                    self._last_move.append(
+                        {'type': 'file', 'src': str(src), 'dest': str(dest)})
+                    new_hist.append({'fecha': now, 'artista': it['artist'] or '—',
+                                     'track': title, 'genero': it['genre'],
+                                     'sello': it['label'], 'año': it['year'],
+                                     'destino': str(dest)})
+                    txt_paths.append(str(dest))
+                    moved_sources.append(it['path'])
+                    src_parents.add(str(src.parent))
+                    last_dir = str(dest_dir)
+                    moved_t += 1
+                else:
+                    src_f = Path(it['path'])
+                    if not src_f.exists():
+                        L(f"✗ No encontrada: {nm}", 'error'); errors += 1; continue
+                    if dest.exists():
+                        L(f"⚠ Ya existe: {nm}", 'warn'); continue
+                    shutil.move(str(src_f), str(dest))
+                    self._last_move.append(
+                        {'type': 'folder', 'src': str(src_f), 'dest': str(dest)})
+                    tagged = total = 0
+                    for tf in sorted(dest.iterdir()):
+                        if not (tf.is_file() and is_audio(tf.name)):
+                            continue
+                        total += 1
+                        ap = parse_filename(tf.name)
+                        if write_id3_tags(tf, it['artist'] or ap.get('artist', ''),
+                                          ap.get('title', tf.stem), it.get('album') or nm,
+                                          it['label'], it['genre'], it['year']):
+                            tagged += 1
+                        new_hist.append({
+                            'fecha': now,
+                            'artista': ap.get('artist') or it['artist'] or '—',
+                            'track': ap.get('title') or tf.stem,
+                            'genero': it['genre'], 'sello': it['label'],
+                            'año': it['year'], 'destino': str(tf)})
+                        txt_paths.append(str(tf))
+                    L(f"📁 {nm} ({total} tracks) [tags {tagged}✓]", 'album')
+                    moved_sources.append(it['path'])
+                    src_parents.add(str(src_f.parent))
+                    last_dir = str(dest_dir)
+                    moved_a += 1
+            except PermissionError:
+                L(f"✗ Sin permisos: {nm}", 'error'); errors += 1
+            except Exception as e:
+                L(f"✗ Error: {e}", 'error'); errors += 1
+
+        # Limpiar carpetas de origen que quedaron vacías (nunca la base ni raíces)
+        base_norm = str(Path(base_path)).rstrip('\\/').lower()
+        for d in src_parents:
+            try:
+                p = Path(d)
+                if (p.exists() and p.is_dir() and len(p.parts) > 1
+                        and str(p).rstrip('\\/').lower() != base_norm
+                        and not any(p.iterdir())):
+                    p.rmdir()
+                    L(f"🗑 Carpeta vacía eliminada: {p}", 'info')
+            except Exception:
+                pass
+
+        if new_hist:
+            save_history(self._history_path,
+                         load_history(self._history_path) + new_hist)
+        txt_count = self._append_txt(base_path, period, txt_paths)
+        L(f"✓ Listo! {moved_t} tracks, {moved_a} albums, "
+          f"{len(folders)} carpetas nuevas, {errors} errores.", 'warn')
+        return {'log': log, 'moved': moved_t, 'moved_albums': moved_a,
+                'errors': errors, 'new_folders': len(folders),
+                'txt_count': txt_count, 'moved_sources': moved_sources,
+                'open_dir': last_dir}
+
+    def _cleanup_empty_dirs(self, start, base):
+        """Elimina carpetas vacías subiendo desde 'start' hasta (sin incluir) 'base'."""
+        base_norm = str(Path(base)).rstrip('\\/').lower() if base else None
+        try:
+            p = Path(start)
+            while p.exists() and p.is_dir():
+                if len(p.parts) <= 1:
+                    break
+                if base_norm and str(p).rstrip('\\/').lower() == base_norm:
+                    break
+                if any(p.iterdir()):
+                    break
+                parent = p.parent
+                p.rmdir()
+                p = parent
+        except Exception:
+            pass
+
+    def _purge_records(self, dests):
+        norm = [str(d).rstrip('\\/').lower() for d in dests]
+
+        def under(p):
+            p = str(p).lower()
+            return any(p == d or p.startswith(d + '\\') or p.startswith(d + '/')
+                       for d in norm)
+
+        hist = [h for h in load_history(self._history_path)
+                if not under(h.get('destino', ''))]
+        save_history(self._history_path, hist)
+        if self._last_txt and Path(self._last_txt).exists():
+            txt = Path(self._last_txt)
+            lines = txt.read_text(encoding='utf-8').splitlines()
+            kept = [ln for ln in lines
+                    if not (self._is_path_line(ln) and under(ln))]
+            txt.write_text('\n'.join(kept) + '\n', encoding='utf-8')
+
+    def undo_last_move(self):
+        if not self._last_move:
+            return {'restored': 0, 'skipped': 0, 'errors': 0,
+                    'problems': ['No hay ningún movimiento reciente para deshacer.']}
+        restored = skipped = errors = 0
+        problems, undone = [], []
+        for entry in reversed(self._last_move):
+            src, dest = Path(entry['src']), Path(entry['dest'])
+            try:
+                if not dest.exists():
+                    skipped += 1; problems.append(f"Ya no está: {dest.name}"); continue
+                if src.exists():
+                    skipped += 1; problems.append(f"El origen ya existe: {src.name}"); continue
+                src.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(dest), str(src))
+                undone.append(str(dest))
+                restored += 1
+            except Exception as e:
+                errors += 1; problems.append(f"{dest.name}: {e}")
+        if undone:
+            self._purge_records(undone)
+            for d in undone:
+                self._cleanup_empty_dirs(Path(d).parent, self._last_base)
+        self._last_move = []
+        return {'restored': restored, 'skipped': skipped,
+                'errors': errors, 'problems': problems}
+
+    def open_in_explorer(self, path):
+        """Abre el Explorador: selecciona el archivo, o abre la carpeta."""
+        import subprocess
+        p = Path(path)
+        try:
+            if p.is_file():
+                subprocess.Popen(['explorer', '/select,', str(p)])
+            elif p.exists():
+                subprocess.Popen(['explorer', str(p)])
+            else:
+                subprocess.Popen(['explorer', str(p.parent)])
+        except Exception:
+            pass
+        return True

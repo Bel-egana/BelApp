@@ -18,6 +18,28 @@ function escapeHtml(s) {
   }[c]));
 }
 
+/* Modal de confirmación con el estilo de la app (reemplaza window.confirm). */
+function confirmModal(title, message) {
+  return new Promise((resolve) => {
+    const ov = $('#modal-overlay');
+    const okBtn = $('#modal-ok');
+    const cancelBtn = $('#modal-cancel');
+    $('#modal-title').textContent = title;
+    $('#modal-msg').textContent = message;
+    ov.classList.add('show');
+    function cleanup(val) {
+      ov.classList.remove('show');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(val);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
 /* ── Navegación entre vistas ─────────────────────────────── */
 const VIEWS = ['cargar', 'buscar', 'resultado', 'historial'];
 
@@ -148,7 +170,7 @@ $('#btn-scan').addEventListener('click', async () => {
 
 $('#btn-clear').addEventListener('click', async () => {
   if (!state.items.length) return;
-  if (await api().confirm('Limpiar', '¿Borrar la lista de ítems cargados?')) {
+  if (await confirmModal('Limpiar', '¿Borrar la lista de ítems cargados?')) {
     state.items = [];
     renderLoadTable();
   }
@@ -169,6 +191,18 @@ let curIdx = -1;
 let results = [];
 let selResult = -1;
 let searchSeq = 0;
+let GENRES = [];
+
+/* Desplegable de género: siempre muestra las categorías de Bel; si el valor
+   que trae Discogs no es una de ellas, lo agrega como opción extra. */
+function setGenre(value) {
+  const sel = $('#conf-genre');
+  const opts = GENRES.slice();
+  if (value && !opts.includes(value)) opts.unshift(value);
+  sel.innerHTML = '<option value="">—</option>' +
+    opts.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  sel.value = value || '';
+}
 
 function setSearchStatus(text, cls) {
   const el = $('#search-status');
@@ -227,7 +261,7 @@ function loadItem(idx) {
   const titlePart = it.type === 'album' ? (it.album || it.name) : (it.title || it.name);
   $('#search-q').value = `${it.artist} ${titlePart}`.trim();
 
-  $('#conf-genre').value = it.conf.genre || '';
+  setGenre(it.conf.genre || '');
   $('#conf-label').value = it.conf.label || '';
   $('#conf-year').value = it.conf.year || '';
   updatePreview();
@@ -288,7 +322,7 @@ function selectResult(i) {
   document.querySelectorAll('#tbl-results tbody tr').forEach(
     (tr, j) => tr.classList.toggle('sel', j === i));
   const r = results[i];
-  $('#conf-genre').value = r.genre || '';
+  setGenre(r.genre || '');
   $('#conf-label').value = r.label || '';
   $('#conf-year').value = r.year || '';
   updatePreview();
@@ -378,11 +412,119 @@ $('#btn-flag').addEventListener('click', () => {
   $(sel).addEventListener('input', updatePreview);
 });
 
-$('#btn-move').addEventListener('click', () => {
-  setSearchStatus('▶ Mover llega en la próxima tarea 😉', 'muted');
+document.getElementById('nav-buscar').addEventListener('click', () => enterBuscar(false));
+
+/* ── Vista Resultado: mover + deshacer ───────────────────── */
+$('#btn-move').addEventListener('click', moveConfirmed);
+
+async function moveConfirmed() {
+  const ready = state.items.filter((i) => i.status === 'confirmed');
+  if (!ready.length) { setSearchStatus('✗ No hay ítems confirmados', 't-flag'); return; }
+
+  const dups = ready.filter((i) => i.is_dup).length;
+  let msg = `¿Mover ${ready.length} ítem${ready.length > 1 ? 's' : ''} ahora?`;
+  if (dups) msg += `\n\n⚠ ${dups} ya figura${dups > 1 ? 'n' : ''} en tu historial.`;
+  msg += '\n\nVas a poder deshacerlo desde la pantalla de Resultado.';
+  if (!(await confirmModal('Confirmar', msg))) return;
+
+  showView('resultado');
+  $('#move-log').textContent = 'Moviendo…';
+
+  const payload = ready.map((i) => ({
+    type: i.type, path: i.path, name: i.name,
+    artist: i.artist, title: i.title, album: i.album,
+    genre: i.conf.genre, label: i.conf.label, year: i.conf.year,
+  }));
+  const res = await api().move_items(
+    payload, $('#base-path').value.trim(), $('#period').value.trim());
+
+  renderMoveResult(res);
+
+  const moved = new Set(res.moved_sources);
+  state.items = state.items.filter((i) => !moved.has(i.path));
+  curIdx = -1;
+  renderLoadTable();
+  renderItemList();
+}
+
+function renderMoveResult(res) {
+  $('#st-tracks').textContent = res.moved;
+  $('#st-albums').textContent = res.moved_albums;
+  $('#st-folders').textContent = res.new_folders;
+  $('#st-errors').textContent = res.errors;
+
+  const logEl = $('#move-log');
+  logEl.innerHTML = '';
+  res.log.forEach((e) => {
+    const span = document.createElement('span');
+    span.className = 'log-' + e.kind;
+    span.textContent = e.text + '\n';
+    logEl.appendChild(span);
+  });
+  const movedAny = (res.moved + res.moved_albums) > 0;
+  $('#btn-undo').disabled = !movedAny;
+  lastOpenDir = res.open_dir || '';
+  $('#btn-open-folder').disabled = !movedAny || !lastOpenDir;
+  updatePeriodCount(res.txt_count);
+}
+
+let lastOpenDir = '';
+$('#btn-open-folder').addEventListener('click', () => {
+  if (lastOpenDir) api().open_in_explorer(lastOpenDir);
 });
 
-document.getElementById('nav-buscar').addEventListener('click', () => enterBuscar(false));
+function appendLog(text, kind) {
+  const span = document.createElement('span');
+  span.className = 'log-' + kind;
+  span.textContent = text + '\n';
+  $('#move-log').appendChild(span);
+}
+
+$('#btn-undo').addEventListener('click', async () => {
+  if (!(await confirmModal('Deshacer movimiento',
+        '¿Devolver los archivos a su ubicación original?'))) return;
+  const out = await api().undo_last_move();
+  let msg = `⮌ ${out.restored} restaurado${out.restored !== 1 ? 's' : ''}`;
+  if (out.skipped || out.errors) {
+    msg += ` · ${out.skipped + out.errors} con problemas: ` +
+      out.problems.slice(0, 4).join('; ');
+  }
+  appendLog('\n' + msg, 'warn');
+  $('#btn-undo').disabled = true;
+  await refreshPeriodCount();
+});
+
+$('#btn-new').addEventListener('click', async () => {
+  if (state.items.length &&
+      !(await confirmModal('Nuevo', '¿Empezar de nuevo? Se limpia la lista de ítems.'))) return;
+  state.items = []; curIdx = -1;
+  renderLoadTable(); renderItemList();
+  $('#move-log').textContent = '';
+  ['tracks', 'albums', 'folders', 'errors'].forEach((k) => { $('#st-' + k).textContent = '0'; });
+  $('#btn-undo').disabled = true;
+  showView('cargar');
+});
+
+/* ── Período ─────────────────────────────────────────────── */
+function defaultPeriod() {
+  const d = new Date();
+  return d.getFullYear() + '_' + (d.getMonth() < 6 ? '06' : '12');
+}
+
+function updatePeriodCount(n) {
+  const name = $('#period').value.trim();
+  $('#period-count').textContent = n
+    ? `Período ${name}: ${n} track${n > 1 ? 's' : ''} acumulado${n > 1 ? 's' : ''}`
+    : `Período ${name}: sin tracks aún`;
+}
+
+async function refreshPeriodCount() {
+  const n = await api().get_period_count(
+    $('#base-path').value.trim(), $('#period').value.trim());
+  updatePeriodCount(n);
+}
+
+$('#period').addEventListener('change', refreshPeriodCount);
 
 /* ── Handshake con Python ────────────────────────────────── */
 window.addEventListener('pywebviewready', async () => {
@@ -390,9 +532,10 @@ window.addEventListener('pywebviewready', async () => {
     const cfg = await api().get_config();
     $('#base-path').value = cfg.base_path;
     $('#token').value = cfg.discogs_token;
-    const genres = await api().get_genres();
-    $('#genres-dl').innerHTML =
-      genres.map((g) => `<option value="${escapeHtml(g)}">`).join('');
+    GENRES = await api().get_genres();
+    setGenre('');
+    $('#period').value = defaultPeriod();
+    await refreshPeriodCount();
     $('#status').textContent =
       'Conectado · Carpeta base: ' + cfg.base_path +
       (cfg.discogs_token ? ' · Token ✓' : ' · Sin token');

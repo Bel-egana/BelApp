@@ -253,6 +253,44 @@ tbody tr:hover { background: var(--surface2); }
 .t-warn { color: var(--warning); }
 .t-flag { color: var(--accent2); }
 
+/* ── Vista Resultado ─────────────────────────────────────── */
+.cards-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.stat { flex: 1; text-align: center; padding: 14px 10px; }
+.stat-n { font-size: 26px; font-weight: 700; color: var(--accent); }
+.stat-l {
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .4px; margin-top: 4px;
+}
+
+.log-card { padding: 12px 14px; overflow: auto; }
+#move-log {
+  font-family: 'Consolas', monospace; font-size: 12.5px;
+  white-space: pre-wrap; line-height: 1.55; margin: 0;
+}
+.log-success { color: var(--success); }
+.log-error { color: var(--accent2); }
+.log-info { color: var(--info); }
+.log-album { color: var(--purple); }
+.log-warn { color: var(--warning); }
+
+.period-box { display: flex; align-items: center; gap: 8px; margin-left: 16px; }
+#period { width: 90px; color: var(--accent); }
+
+/* ── Modal (reemplaza los diálogos nativos) ──────────────── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0, 0, 0, .62);
+  align-items: center; justify-content: center; z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+.modal { width: 440px; max-width: 90vw; padding: 20px 22px; }
+.modal-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+.modal-msg {
+  color: var(--muted); font-size: 13px; line-height: 1.55;
+  white-space: pre-line; margin-bottom: 18px;
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }

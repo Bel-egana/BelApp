@@ -117,8 +117,7 @@
           <div class="lbl-sm">Datos para mover</div>
           <div class="datos-row">
             <label>Género
-              <input type="text" id="conf-genre" list="genres-dl" spellcheck="false">
-              <datalist id="genres-dl"></datalist>
+              <select id="conf-genre"></select>
             </label>
             <label>Sello <input type="text" id="conf-label" spellcheck="false"></label>
             <label>Año <input type="text" id="conf-year" spellcheck="false"></label>
@@ -142,7 +141,29 @@
 
   <section id="view-resultado" class="view">
     <h1>Resultado</h1>
-    <p class="placeholder-note">Vista en construcción — Task 4</p>
+
+    <div class="cards-row">
+      <div class="stat card"><div class="stat-n" id="st-tracks">0</div><div class="stat-l">Tracks movidos</div></div>
+      <div class="stat card"><div class="stat-n" id="st-albums">0</div><div class="stat-l">Albums/EPs</div></div>
+      <div class="stat card"><div class="stat-n" id="st-folders">0</div><div class="stat-l">Carpetas nuevas</div></div>
+      <div class="stat card"><div class="stat-n" id="st-errors">0</div><div class="stat-l">Errores</div></div>
+    </div>
+
+    <div class="card log-card grow">
+      <pre id="move-log"></pre>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn btn-accent" id="btn-new">↺ Nuevo</button>
+      <button class="btn btn-info" id="btn-open-folder" disabled>📂 Abrir carpeta</button>
+      <button class="btn btn-ghost danger" id="btn-undo" disabled>⮌ Deshacer movimiento</button>
+      <span class="period-box">
+        <span class="muted small" style="margin:0">Período</span>
+        <input type="text" id="period" value="" spellcheck="false">
+      </span>
+      <span class="spacer"></span>
+      <span id="period-count" class="muted small" style="margin:0"></span>
+    </div>
   </section>
 
   <section id="view-historial" class="view">
@@ -152,6 +173,17 @@
 
   <footer id="status">Conectando con Python…</footer>
 </main>
+
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-msg" id="modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="modal-ok">Aceptar</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
