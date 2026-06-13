@@ -11,6 +11,10 @@ __pycache__/
 venv/
 env/
 
+# ─── PyInstaller (artefactos de build; el .spec sí se versiona) ──────────────
+build/
+dist/
+
 # ─── Herramientas de sesión ─────────────────────────────────────────────────
 .superpowers/
 .remember/
