@@ -3,19 +3,22 @@ BelApp — Music Organizer (interfaz web-style).
 Punto de entrada: abre la ventana PyWebView sobre web/index.html.
 Correr:  python main.py
 """
+import sys
 from pathlib import Path
 
 import webview
 
 from api import Api
+from core.paths import resource_dir
 
-BASE = Path(__file__).parent
+# Recursos de solo lectura (web/): desde el bundle si está congelado.
+RES = resource_dir(getattr(sys, '_MEIPASS', None), Path(__file__).parent)
 
 if __name__ == '__main__':
     api = Api()
     window = webview.create_window(
         'BelApp — Music Organizer',
-        str(BASE / 'web' / 'index.html'),
+        str(RES / 'web' / 'index.html'),
         js_api=api,
         width=1100, height=700, min_size=(860, 560),
         background_color='#0c0c10')

@@ -7,6 +7,7 @@ Toda la lógica real vive en core/ — esto es pegamento fino y testeable
 (se instancia sin ventana; los diálogos nativos requieren set_window).
 """
 import shutil
+import sys
 import webbrowser
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from urllib.parse import quote
 
 from core import discogs as discogs_core
 from core.config import load_config, save_config
+from core.paths import frozen_app_dir
 from core.genres import BEL_GENRES, format_genre
 from core.history import (build_name_index, find_duplicate, load_history,
                           save_history)
@@ -21,7 +23,9 @@ from core.metadata import is_audio, read_id3, write_id3_tags
 from core.organizer import build_path
 from core.parsing import parse_filename, parse_folder_name
 
-APP_DIR = Path(__file__).parent
+# Datos escribibles: al lado del .exe si está congelado, si no al lado del código.
+APP_DIR = frozen_app_dir(getattr(sys, 'frozen', False),
+                         Path(sys.executable).parent, Path(__file__).parent)
 CONFIG_PATH = APP_DIR / 'config.json'
 HISTORY_PATH = APP_DIR / 'historial.json'
 
