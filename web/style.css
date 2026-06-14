@@ -280,7 +280,8 @@ tbody tr:hover { background: var(--surface2); }
 
 /* ── Vista Historial ─────────────────────────────────────── */
 .hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-#hist-search { flex: 1; max-width: 420px; }
+#hist-search { flex: 1; max-width: 360px; }
+#hist-genre { min-width: 190px; }
 #tbl-hist { table-layout: fixed; width: 100%; }
 #tbl-hist th, #tbl-hist td {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -314,6 +315,17 @@ tbody tr:hover { background: var(--surface2); }
   white-space: pre-line; margin-bottom: 18px;
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal .datos-row { flex-wrap: wrap; gap: 12px 14px; }
+.modal .datos-row label { color: var(--muted); }
+.modal .datos-row label:first-child { flex-basis: 100%; }
+#recat-genre { width: 100%; }
+#recat-label { width: 160px; }
+#recat-year  { width: 70px; }
+.recat-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted); margin-bottom: 10px; cursor: pointer;
+}
+.recat-check input { width: 15px; height: 15px; accent-color: var(--accent); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 6px; }

@@ -532,16 +532,28 @@ let ctxDestino = '';
 
 async function loadHistory() {
   history = await api().get_history();
+  populateGenreFilter();
   renderHistory();
+}
+
+function populateGenreFilter() {
+  const sel = $('#hist-genre');
+  const cur = sel.value;
+  const genres = [...new Set(history.map((h) => h.genero).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos los géneros</option>' +
+    genres.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  sel.value = cur;   // preservar la selección si todavía existe
 }
 
 function renderHistory() {
   const flt = $('#hist-search').value.trim().toLowerCase();
+  const gen = $('#hist-genre').value;
   const tbody = $('#tbl-hist tbody');
   tbody.innerHTML = '';
   let shown = 0;
 
   history.slice().reverse().forEach((h) => {
+    if (gen && (h.genero || '') !== gen) return;
     if (flt) {
       const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
         .join(' ').toLowerCase();
@@ -564,10 +576,12 @@ function renderHistory() {
   $('#hist-empty').style.display = history.length ? 'none' : 'block';
   const total = history.length;
   $('#hist-count').textContent = total === 0 ? 'Sin registros aún'
-    : (flt ? `${shown} de ${total} registros` : `${total} registro${total !== 1 ? 's' : ''}`);
+    : ((flt || gen) ? `${shown} de ${total} registros`
+                    : `${total} registro${total !== 1 ? 's' : ''}`);
 }
 
 $('#hist-search').addEventListener('input', renderHistory);
+$('#hist-genre').addEventListener('change', renderHistory);
 
 function showCtxMenu(e, destino) {
   e.preventDefault();
@@ -584,6 +598,7 @@ $('#ctx-menu').addEventListener('click', async (e) => {
   const act = e.target.dataset.act;
   if (!act || !ctxDestino) return;
   if (act === 'open') api().open_in_explorer(ctxDestino);
+  else if (act === 'edit') openRecatModal(ctxDestino);
   else if (act === 'copy') navigator.clipboard.writeText(ctxDestino);
   else if (act === 'del') {
     if (await confirmModal('Eliminar registro',
@@ -592,6 +607,44 @@ $('#ctx-menu').addEventListener('click', async (e) => {
       await loadHistory();
     }
   }
+});
+
+/* Corregir ubicación (re-categorizar) de una entrada del historial */
+let recatDestino = '';
+
+function openRecatModal(destino) {
+  const h = history.find((x) => x.destino === destino);
+  if (!h) return;
+  recatDestino = destino;
+  $('#recat-info').textContent = `${h.artista || '—'} — ${h.track || ''}`;
+  const sel = $('#recat-genre');
+  const opts = GENRES.slice();
+  if (h.genero && !opts.includes(h.genero)) opts.unshift(h.genero);
+  sel.innerHTML = opts.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  sel.value = h.genero || '';
+  $('#recat-label').value = h.sello || '';
+  $('#recat-year').value = h['año'] || '';
+  $('#recat-clean').checked = true;
+  $('#recat-err').textContent = '';
+  $('#recat-overlay').classList.add('show');
+}
+
+$('#recat-cancel').addEventListener('click',
+  () => $('#recat-overlay').classList.remove('show'));
+
+$('#recat-save').addEventListener('click', async () => {
+  const genre = $('#recat-genre').value.trim();
+  const label = $('#recat-label').value.trim();
+  const year = $('#recat-year').value.trim();
+  if (!genre || !label || !year) {
+    $('#recat-err').textContent = '✗ Completá género, sello y año.';
+    return;
+  }
+  const res = await api().recategorize_entry(
+    recatDestino, genre, label, year, $('#recat-clean').checked);
+  if (res.error) { $('#recat-err').textContent = '✗ ' + res.error; return; }
+  $('#recat-overlay').classList.remove('show');
+  await loadHistory();
 });
 
 $('#btn-hist-clear').addEventListener('click', async () => {

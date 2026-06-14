@@ -170,7 +170,8 @@
     <div class="hist-head">
       <h1 style="margin:0">Historial</h1>
       <input type="text" id="hist-search" spellcheck="false"
-             placeholder="Buscar por artista, track, género, sello…">
+             placeholder="Buscar por artista, track, sello…">
+      <select id="hist-genre"><option value="">Todos los géneros</option></select>
       <span class="spacer"></span>
       <button class="btn btn-info" id="btn-hist-csv">⬇ Exportar a Excel</button>
       <button class="btn btn-ghost danger" id="btn-hist-clear">🗑 Limpiar</button>
@@ -197,6 +198,7 @@
 
   <div id="ctx-menu" class="ctx-menu">
     <div class="ctx-item" data-act="open">📂 Abrir en carpeta</div>
+    <div class="ctx-item" data-act="edit">✏ Corregir ubicación</div>
     <div class="ctx-item" data-act="copy">📋 Copiar ruta destino</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item danger" data-act="del">🗑 Eliminar del historial</div>
@@ -212,6 +214,27 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
       <button class="btn btn-accent" id="modal-ok">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div id="recat-overlay" class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-title">✏ Corregir ubicación</div>
+    <div class="modal-msg" id="recat-info"></div>
+    <div class="datos-row" style="margin-bottom:14px">
+      <label>Género <select id="recat-genre"></select></label>
+      <label>Sello <input type="text" id="recat-label" spellcheck="false"></label>
+      <label>Año <input type="text" id="recat-year" spellcheck="false"></label>
+    </div>
+    <label class="recat-check">
+      <input type="checkbox" id="recat-clean" checked>
+      Borrar las carpetas que queden vacías en la ubicación vieja
+    </label>
+    <div id="recat-err" class="small" style="color:var(--accent2)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="recat-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="recat-save">Guardar y mover</button>
     </div>
   </div>
 </div>

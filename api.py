@@ -459,6 +459,50 @@ class Api:
     def clear_history(self):
         return save_history(self._history_path, [])
 
+    def _replace_in_txts(self, base, old, new):
+        """Reemplaza una ruta vieja por la nueva en cualquier belapp_*.txt."""
+        try:
+            for txt in Path(base).glob('belapp_*.txt'):
+                lines = txt.read_text(encoding='utf-8').splitlines()
+                if old in lines:
+                    lines = [new if ln == old else ln for ln in lines]
+                    txt.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        except Exception:
+            pass
+
+    def recategorize_entry(self, old_destino, genre, label, year, clean_empty=True):
+        """Corrige género/sello/año de un track ya organizado: mueve el archivo
+        a la carpeta correcta, reescribe tags y actualiza historial + TXT."""
+        src = Path(old_destino)
+        if not src.exists():
+            return {'error': 'El archivo ya no está en su ubicación registrada.'}
+        base = load_config(self._config_path).get('base_path', '')
+        if not base:
+            return {'error': 'No hay carpeta base configurada.'}
+        dest = build_path(base, genre, label, year, src.name)
+        moved = dest != src
+        if moved:
+            if dest.exists():
+                return {'error': f'Ya existe un archivo en el destino:\n{dest}'}
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dest))
+
+        # Actualizar la entrada en el historial + reescribir tags
+        hist = load_history(self._history_path)
+        artist = track = ''
+        for h in hist:
+            if h.get('destino') == old_destino:
+                artist, track = h.get('artista', ''), h.get('track', '')
+                h.update({'genero': genre, 'sello': label, 'año': year,
+                          'destino': str(dest)})
+        write_id3_tags(dest, artist, track, '', label, genre, year)
+        save_history(self._history_path, hist)
+
+        self._replace_in_txts(base, old_destino, str(dest))
+        if clean_empty and moved:
+            self._cleanup_empty_dirs(src.parent, base)
+        return {'ok': True, 'dest': str(dest)}
+
     def _write_history_xlsx(self, path, hist):
         """Escribe el historial como Excel prolijo (encabezados, anchos, fila fija)."""
         from openpyxl import Workbook

@@ -331,6 +331,56 @@ def test_clear_history(tmp_path):
     assert load_history(hist) == []
 
 
+def _setup_recat(tmp_path):
+    from core.history import save_history
+    base = tmp_path / "M"
+    old = base / "Trance" / "Sello" / "2020" / "A - T.mp3"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"")
+    hist = tmp_path / "historial.json"
+    save_history(hist, [{"artista": "A", "track": "T", "genero": "Trance",
+                         "sello": "Sello", "año": "2020", "destino": str(old)}])
+    api = Api(config_path=tmp_path / "c.json", history_path=hist)
+    api.save_config_values(str(base), "")
+    return api, base, old, hist
+
+
+def test_recategorize_mueve_actualiza_y_limpia(tmp_path):
+    from core.history import load_history
+    api, base, old, hist = _setup_recat(tmp_path)
+    res = api.recategorize_entry(str(old), "Psychedelic Trance", "Sello", "2020", True)
+    assert res.get("ok")
+    new = base / "Psychedelic Trance" / "Sello" / "2020" / "A - T.mp3"
+    assert new.exists() and not old.exists()
+    h = load_history(hist)[0]
+    assert h["genero"] == "Psychedelic Trance"
+    assert h["destino"] == str(new)
+    assert not (base / "Trance").exists()       # carpeta vieja vacía eliminada
+
+
+def test_recategorize_sin_limpiar_deja_carpeta_vieja(tmp_path):
+    api, base, old, hist = _setup_recat(tmp_path)
+    api.recategorize_entry(str(old), "Psychedelic Trance", "Sello", "2020", False)
+    assert (base / "Trance").exists()           # sin limpiar: queda la carpeta vieja
+
+
+def test_recategorize_no_pisa_destino_existente(tmp_path):
+    api, base, old, hist = _setup_recat(tmp_path)
+    dest = base / "Psychedelic Trance" / "Sello" / "2020" / "A - T.mp3"
+    dest.parent.mkdir(parents=True)
+    dest.write_text("ya existe")
+    res = api.recategorize_entry(str(old), "Psychedelic Trance", "Sello", "2020", True)
+    assert "error" in res
+    assert old.exists()                         # no se movió
+
+
+def test_recategorize_archivo_inexistente(tmp_path):
+    api, base, old, hist = _setup_recat(tmp_path)
+    old.unlink()
+    res = api.recategorize_entry(str(old), "Trance", "Sello", "2020", True)
+    assert "error" in res
+
+
 def test_write_history_xlsx(tmp_path):
     from openpyxl import load_workbook
     api = _api(tmp_path)
