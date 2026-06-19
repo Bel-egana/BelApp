@@ -51,3 +51,56 @@ def format_genre(raw):
         if clave in low:
             return categoria
     return ''
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Taxonomía ESPECÍFICA de Bel (para el normalizador del historial de Traktor).
+# Más granular que las 4 de arriba. Se usa para limpiar los géneros sucios de
+# la biblioteca hacia esta lista curada.
+# ─────────────────────────────────────────────────────────────────────────────
+BEL_GENRES_SPECIFIC = [
+    'Melodic Techno', 'Techno', 'Acid Techno', 'Deep House', 'Melodic House',
+    'Progressive House', 'Tech House', 'Afro / Organic House', 'Indie Dance',
+    'Trance', 'Psytrance', 'Progressive Psy',
+]
+
+# Reglas ORDENADAS (substring en minúsculas -> categoría). Gana la PRIMERA que
+# matchea, por eso las más específicas van primero. Lo que no matchea queda '' .
+SPECIFIC_RULES = [
+    ('acid techno',             'Acid Techno'),
+    ('melodic house & techno',  'Melodic Techno'),   # Beatport los junta -> Bel: Melodic Techno
+    ('melodic house and techno', 'Melodic Techno'),
+    ('melodic techno',          'Melodic Techno'),
+    ('progressive psy',         'Progressive Psy'),
+    ('iboga',                   'Progressive Psy'),
+    ('tech house',              'Tech House'),
+    ('afro house',              'Afro / Organic House'),
+    ('organic house',           'Afro / Organic House'),
+    ('deep house',              'Deep House'),
+    ('melodic house',           'Melodic House'),
+    ('progressive house',       'Progressive House'),
+    ('prog-house',              'Progressive House'),
+    ('house progressive',       'Progressive House'),
+    ('indie dance',             'Indie Dance'),
+    ('psy',                     'Psytrance'),          # psychedelic, psy-trance, psychadelic, goa-psy
+    ('goa',                     'Psytrance'),
+    ('progressive trance',      'Trance'),
+    ('progressivetrance',       'Trance'),
+    ('uplifting',               'Trance'),
+    ('techno',                  'Techno'),             # peak time / driving / raw / hypnotic / minimal techno
+    ('trance',                  'Trance'),             # genérico, dance/trance, tech trance, main floor
+]
+
+
+def map_genre_specific(raw):
+    """Traduce un género crudo a la taxonomía específica de Bel (12 categorías).
+
+    Devuelve '' si está vacío o no matchea ninguna regla (basura, géneros que
+    no son de Bel, etc. — esos se dejan sin tocar)."""
+    if not raw:
+        return ''
+    low = raw.lower()
+    for clave, categoria in SPECIFIC_RULES:
+        if clave in low:
+            return categoria
+    return ''

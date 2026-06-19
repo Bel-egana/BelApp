@@ -176,6 +176,34 @@ $('#btn-clear').addEventListener('click', async () => {
   }
 });
 
+$('#btn-normalize').addEventListener('click', async () => {
+  const folder = await api().pick_folder();
+  if (!folder) return;
+  const r = await api().preview_normalize(folder);
+  if (r.error) { await confirmModal('Normalizar géneros', '✗ ' + r.error); return; }
+  if (!r.changed.length) {
+    await confirmModal('Normalizar géneros',
+      `No hay géneros para normalizar de ${r.total} tracks.\n\n` +
+      `✓ ${r.already_ok} ya están en tus categorías\n` +
+      `— ${r.no_match} con género que no mapea\n` +
+      `? ${r.no_genre} sin género (necesitan Discogs)`);
+    return;
+  }
+  const examples = r.changed.slice(0, 5).map((c) => `   • ${c.old} → ${c.new}`).join('\n');
+  const msg =
+    `Revisé ${r.total} tracks:\n\n` +
+    `✏ ${r.changed.length} para normalizar, por ejemplo:\n${examples}\n\n` +
+    `✓ ${r.already_ok} ya en tus categorías\n` +
+    `— ${r.no_match} no mapean (sin cambios)\n` +
+    `? ${r.no_genre} sin género (necesitan Discogs)\n\n` +
+    `¿Aplicar los ${r.changed.length} cambios? Solo toca el tag de género, NO mueve archivos.`;
+  if (!(await confirmModal('Normalizar géneros', msg))) return;
+  const res = await api().apply_normalize(folder);
+  await confirmModal('Listo ✓',
+    `${res.changed.length} géneros normalizados a tus categorías.\n\n` +
+    'En Traktor: re-importá/actualizá y ordená por la columna Genre.');
+});
+
 $('#btn-continue').addEventListener('click', async () => {
   if (!$('#token').value.trim()) {
     flashMsg('✗ Necesitás un token de Discogs — usá el botón "Obtener token"');

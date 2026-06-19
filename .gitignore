@@ -18,6 +18,12 @@ dist/
 # ─── Preview descartable del ícono ──────────────────────────────────────────
 assets/icon_preview.png
 
+# ─── Scripts/reportes temporales de análisis de géneros (one-off) ────────────
+scan_genres.py
+analizar_mapeo.py
+generos_reporte.txt
+proyeccion_mapeo.txt
+
 # ─── Herramientas de sesión ─────────────────────────────────────────────────
 .superpowers/
 .remember/

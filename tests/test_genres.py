@@ -10,7 +10,56 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.genres import format_genre, BEL_GENRES, GENRE_MAP
+from core.genres import (BEL_GENRES, BEL_GENRES_SPECIFIC, GENRE_MAP,
+                         format_genre, map_genre_specific)
+
+
+# ── Taxonomía específica (normalizador de Traktor) ───────────────────────────
+
+def test_specific_melodic_house_y_techno_va_a_melodic_techno():
+    # Decisión de Bel: el combinado de Beatport -> Melodic Techno
+    assert map_genre_specific("Melodic House & Techno") == "Melodic Techno"
+    assert map_genre_specific("Deep House, Melodic House & Techno, Progressive House") == "Melodic Techno"
+
+
+def test_specific_techno_variantes():
+    assert map_genre_specific("Techno") == "Techno"
+    assert map_genre_specific("Techno (Peak Time / Driving)") == "Techno"
+    assert map_genre_specific("Minimal Techno") == "Techno"
+
+
+def test_specific_psy_variantes():
+    assert map_genre_specific("Psychedelic") == "Psytrance"
+    assert map_genre_specific("Psy-Trance") == "Psytrance"
+    assert map_genre_specific("Psychadelic") == "Psytrance"
+
+
+def test_specific_acid_techno_antes_que_techno():
+    assert map_genre_specific("Acid Techno") == "Acid Techno"
+
+
+def test_specific_tech_house_antes_que_house():
+    assert map_genre_specific("Tech House") == "Tech House"
+    assert map_genre_specific("Deep House") == "Deep House"
+    assert map_genre_specific("Indie Dance") == "Indie Dance"
+
+
+def test_specific_trance_y_progresivos():
+    assert map_genre_specific("Trance") == "Trance"
+    assert map_genre_specific("Progressive Trance") == "Trance"   # unificado
+    assert map_genre_specific("Dance / Trance") == "Trance"
+
+
+def test_specific_basura_no_mapea():
+    for junk in ("Blues", "Electro", "Dance", "www.sharingdb.org",
+                 "Synthwave", "", "????"):
+        assert map_genre_specific(junk) == ""
+
+
+def test_specific_todo_lo_mapeado_esta_en_la_lista():
+    from core.genres import SPECIFIC_RULES
+    for _, canon in SPECIFIC_RULES:
+        assert canon in BEL_GENRES_SPECIFIC
 
 
 def test_techno_va_a_melodic_techno():

@@ -20,6 +20,7 @@ from core.genres import BEL_GENRES, format_genre
 from core.history import (build_name_index, find_duplicate, load_history,
                           save_history)
 from core.metadata import is_audio, read_id3, write_id3_tags
+from core.normalizer import normalize_folder
 from core.organizer import build_path
 from core.parsing import parse_filename, parse_folder_name
 
@@ -502,6 +503,19 @@ class Api:
         if clean_empty and moved:
             self._cleanup_empty_dirs(src.parent, base)
         return {'ok': True, 'dest': str(dest)}
+
+    # ── Normalizador de géneros (mantenimiento) ───────────────────────────────
+    def preview_normalize(self, folder):
+        """Dry-run: reporta qué géneros se normalizarían, sin tocar nada."""
+        if not folder or not Path(folder).is_dir():
+            return {'error': 'Carpeta inválida.'}
+        return normalize_folder(folder, dry_run=True)
+
+    def apply_normalize(self, folder):
+        """Aplica la normalización: reescribe los tags de género."""
+        if not folder or not Path(folder).is_dir():
+            return {'error': 'Carpeta inválida.'}
+        return normalize_folder(folder, dry_run=False)
 
     def _write_history_xlsx(self, path, hist):
         """Escribe el historial como Excel prolijo (encabezados, anchos, fila fija)."""
