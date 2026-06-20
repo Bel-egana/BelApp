@@ -66,6 +66,28 @@ def test_load_tracks_respeta_tope(tmp_path):
     assert out["capped"] is True
 
 
+def test_load_tracks_dedup_por_ruta(tmp_path):
+    api = _api(tmp_path)
+    f = tmp_path / "A - B.mp3"
+    f.write_bytes(b"")
+    out1 = api.load_tracks([str(f)], [], 0)
+    assert len(out1["items"]) == 1
+    out2 = api.load_tracks([str(f)], [str(f)], 1)   # mismo archivo ya cargado
+    assert len(out2["items"]) == 0 and out2["skipped"] == 1
+
+
+def test_load_tracks_mismo_nombre_distinta_carpeta_entran_los_dos(tmp_path):
+    api = _api(tmp_path)
+    (tmp_path / "x").mkdir()
+    (tmp_path / "y").mkdir()
+    f1 = tmp_path / "x" / "Track.mp3"
+    f2 = tmp_path / "y" / "Track.mp3"
+    f1.write_bytes(b"")
+    f2.write_bytes(b"")
+    out = api.load_tracks([str(f1), str(f2)], [], 0)
+    assert len(out["items"]) == 2   # mismo nombre pero distinta ruta -> ambos
+
+
 def test_duplicado_contra_historial(tmp_path):
     from core.history import save_history
     hist = tmp_path / "historial.json"

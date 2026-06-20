@@ -42,6 +42,7 @@ class Api:
         self._last_move = []
         self._last_txt = None
         self._last_base = None
+        self._last_dir = None   # última carpeta usada en los diálogos
 
     def set_window(self, window):
         """La ventana se inyecta después de crearla (para diálogos nativos)."""
@@ -71,16 +72,29 @@ class Api:
                    'save': webview.SAVE_DIALOG}[kind]
         return self._window.create_file_dialog(dlg, **kw)
 
+    def _start_dir(self):
+        """Carpeta donde abrir el diálogo: la última usada, si no la base (Música)."""
+        if self._last_dir and Path(self._last_dir).is_dir():
+            return self._last_dir
+        base = load_config(self._config_path).get('base_path', DEFAULT_BASE)
+        return base if Path(base).is_dir() else ''
+
     def pick_folder(self):
-        result = self._dialog('folder')
-        return result[0] if result else None
+        result = self._dialog('folder', directory=self._start_dir())
+        if result:
+            self._last_dir = result[0]
+            return result[0]
+        return None
 
     def pick_tracks(self):
         result = self._dialog(
-            'open', allow_multiple=True,
+            'open', directory=self._start_dir(), allow_multiple=True,
             file_types=('Audio (*.mp3;*.wav;*.aiff;*.flac;*.m4a)',
                         'Todos los archivos (*.*)'))
-        return list(result) if result else []
+        if result:
+            self._last_dir = str(Path(result[0]).parent)
+            return list(result)
+        return []
 
     def confirm(self, title, message):
         """Diálogo nativo Sí/No (window.confirm no anda en WebView2)."""
@@ -138,7 +152,8 @@ class Api:
                 'label': id3.get('label', ''), 'year': id3.get('year', ''),
                 'has_id3': bool(id3), 'n_tracks': 1,
                 'is_dup': dup is not None,
-                'dup_fecha': (dup or {}).get('fecha', '')}
+                'dup_fecha': (dup or {}).get('fecha', ''),
+                'dup_info': dup}
 
     def _album_item(self, folder, dup_index):
         fp = Path(folder)
@@ -158,43 +173,44 @@ class Api:
                 'label': id3.get('label', ''), 'year': id3.get('year', ''),
                 'has_id3': bool(id3), 'n_tracks': len(audio),
                 'is_dup': dup is not None,
-                'dup_fecha': (dup or {}).get('fecha', '')}
+                'dup_fecha': (dup or {}).get('fecha', ''),
+                'dup_info': dup}
 
-    def load_tracks(self, paths, existing_names, current_count):
+    def load_tracks(self, paths, existing_paths, current_count):
         idx = self._dup_index()
-        existing = set(existing_names)
+        existing = set(existing_paths)            # rutas ya cargadas
         items, skipped, capped = [], 0, False
         for p in paths:
             if current_count + len(items) >= MAX_ITEMS:
                 capped = True
                 break
-            name = Path(p).name
-            if not is_audio(name):
+            key = str(Path(p))
+            if not is_audio(Path(p).name):
                 continue
-            if name in existing:
+            if key in existing:                   # mismo archivo ya cargado
                 skipped += 1
                 continue
             items.append(self._track_item(p, idx))
-            existing.add(name)
+            existing.add(key)
         return {'items': items, 'skipped': skipped, 'capped': capped}
 
-    def load_album_folder(self, path, existing_names, current_count):
+    def load_album_folder(self, path, existing_paths, current_count):
         if current_count >= MAX_ITEMS:
             return {'error': f'Llegaste al máximo de {MAX_ITEMS} ítems por tanda.'}
-        name = Path(path).name
-        if name in existing_names:
-            return {'error': f'"{name}" ya está cargada.'}
+        key = str(Path(path))
+        if key in set(existing_paths):
+            return {'error': f'"{Path(path).name}" ya está cargada.'}
         item = self._album_item(path, self._dup_index())
         if item is None:
-            return {'error': f'No hay archivos de audio en "{name}".'}
+            return {'error': f'No hay archivos de audio en "{Path(path).name}".'}
         return {'item': item}
 
-    def scan_folder(self, path, existing_names, current_count):
+    def scan_folder(self, path, existing_paths, current_count):
         fp = Path(path)
         if not fp.is_dir():
             return {'error': 'Carpeta inválida.'}
         idx = self._dup_index()
-        existing = set(existing_names)
+        existing = set(existing_paths)
         items, skipped, capped = [], 0, False
 
         def full():
@@ -206,11 +222,11 @@ class Api:
             if full():
                 capped = True
                 break
-            if f.name in existing:
+            if str(f) in existing:
                 skipped += 1
                 continue
             items.append(self._track_item(str(f), idx))
-            existing.add(f.name)
+            existing.add(str(f))
 
         if not capped:
             for sub in sorted(fp.iterdir()):
@@ -219,13 +235,13 @@ class Api:
                 if full():
                     capped = True
                     break
-                if sub.name in existing:
+                if str(sub) in existing:
                     skipped += 1
                     continue
                 item = self._album_item(str(sub), idx)
                 if item:
                     items.append(item)
-                    existing.add(sub.name)
+                    existing.add(str(sub))
 
         return {'items': items, 'skipped': skipped, 'capped': capped}
 

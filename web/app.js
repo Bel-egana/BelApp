@@ -11,6 +11,7 @@ const state = {
 };
 
 const itemNames = () => state.items.map((i) => i.name);
+const itemPaths = () => state.items.map((i) => i.path);   // dedup por ruta
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -83,6 +84,20 @@ function removeItem(id) {
   renderLoadTable();
 }
 
+function showDupInfo(it) {
+  const d = it.dup_info || {};
+  const msg =
+    'Este ítem coincide con algo que YA ordenaste:\n\n' +
+    `• Artista:  ${d.artista || '—'}\n` +
+    `• Track:  ${d.track || '—'}\n` +
+    `• Fecha:  ${d.fecha || '—'}\n` +
+    `• Género:  ${d.genero || '—'}\n` +
+    `• Sello:  ${d.sello || '—'}\n` +
+    `• Ubicación:  ${d.destino || '—'}\n\n` +
+    'Coincide por nombre de archivo: puede ser el mismo tema en otra compilación.';
+  confirmModal('Ya en historial', msg);
+}
+
 function renderLoadTable() {
   const tbody = $('#tbl-load tbody');
   tbody.innerHTML = '';
@@ -97,14 +112,19 @@ function renderLoadTable() {
     const nameTxt = (it.type === 'album' ? '📁 ' : '') + it.name +
       (it.type === 'album' ? ` (${it.n_tracks} tracks)` : '');
 
+    const dupTitle = it.is_dup ? ' title="Click derecho para ver dónde y por qué"' : '';
     const tr = document.createElement('tr');
     tr.innerHTML =
       `<td class="muted">${it.type === 'album' ? 'EP/ALBUM' : 'TRACK'}</td>` +
       `<td class="${nameCls}">${escapeHtml(nameTxt)}</td>` +
       `<td>${escapeHtml(it.artist || '—')}</td>` +
-      `<td class="${tagsCls}">${tagsTxt}</td>` +
+      `<td class="${tagsCls}"${dupTitle}>${tagsTxt}</td>` +
       `<td><button class="row-x" title="Quitar">✕</button></td>`;
     tr.querySelector('.row-x').addEventListener('click', () => removeItem(it.id));
+    if (it.is_dup) {
+      tr.style.cursor = 'context-menu';
+      tr.addEventListener('contextmenu', (e) => { e.preventDefault(); showDupInfo(it); });
+    }
     tbody.appendChild(tr);
   });
 
@@ -146,7 +166,7 @@ $('#btn-get-token').addEventListener('click', () => api().open_token_page());
 $('#btn-add-tracks').addEventListener('click', async () => {
   const paths = await api().pick_tracks();
   if (!paths.length) return;
-  const res = await api().load_tracks(paths, itemNames(), state.items.length);
+  const res = await api().load_tracks(paths, itemPaths(), state.items.length);
   addItems(res.items);
   loadSummary(res);
 });
@@ -154,7 +174,7 @@ $('#btn-add-tracks').addEventListener('click', async () => {
 $('#btn-add-album').addEventListener('click', async () => {
   const p = await api().pick_folder();
   if (!p) return;
-  const res = await api().load_album_folder(p, itemNames(), state.items.length);
+  const res = await api().load_album_folder(p, itemPaths(), state.items.length);
   if (res.error) { flashMsg('✗ ' + res.error); return; }
   addItems([res.item]);
 });
@@ -162,7 +182,7 @@ $('#btn-add-album').addEventListener('click', async () => {
 $('#btn-scan').addEventListener('click', async () => {
   const p = await api().pick_folder();
   if (!p) return;
-  const res = await api().scan_folder(p, itemNames(), state.items.length);
+  const res = await api().scan_folder(p, itemPaths(), state.items.length);
   if (res.error) { flashMsg('✗ ' + res.error); return; }
   addItems(res.items);
   loadSummary(res);
