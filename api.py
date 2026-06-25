@@ -143,8 +143,9 @@ class Api:
         id3 = read_id3(p)
         parsed = parse_filename(p.name)
         dup = find_duplicate([p.name], dup_index)
+        query = f"{parsed.get('artist', '')} {parsed.get('title', '')}".strip() or Path(p.name).stem
         return {'type': 'track', 'name': p.name, 'path': str(p),
-                'folder_name': '',
+                'folder_name': '', 'search_query': query,
                 'artist': id3.get('artist') or parsed.get('artist', ''),
                 'title': id3.get('title') or parsed.get('title', ''),
                 'album': '',
@@ -164,8 +165,9 @@ class Api:
         parsed = parse_folder_name(fp.name)
         id3 = read_id3(audio[0])
         dup = find_duplicate([f.name for f in audio], dup_index)
+        query = f"{parsed.get('artist', '')} {parsed.get('album', '')}".strip() or fp.name
         return {'type': 'album', 'name': fp.name, 'path': str(fp),
-                'folder_name': fp.name,
+                'folder_name': fp.name, 'search_query': query,
                 'artist': id3.get('artist') or parsed.get('artist', ''),
                 'title': '',
                 'album': id3.get('album') or parsed.get('album', ''),

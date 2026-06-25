@@ -245,9 +245,11 @@ tbody tr:hover { background: var(--surface2); }
   display: flex; flex-direction: column; gap: 4px;
   color: var(--muted); font-size: 11px; text-transform: uppercase;
 }
-#conf-genre { width: 240px; }
-#conf-label { width: 190px; }
-#conf-year  { width: 80px; }
+#conf-genre  { width: 240px; }
+#conf-label  { width: 190px; }
+#conf-year   { width: 80px; }
+#conf-artist { width: 250px; }
+#conf-title  { width: 320px; }
 #dest-preview { margin: 0; }
 #dest-preview.ready { color: var(--accent); }
 

@@ -306,8 +306,13 @@ function loadItem(idx) {
   h2.textContent = `${tipo}: ${it.name}${dup}`;
   h2.style.color = it.is_dup ? 'var(--warning)' : 'var(--accent)';
 
-  const titlePart = it.type === 'album' ? (it.album || it.name) : (it.title || it.name);
-  $('#search-q').value = `${it.artist} ${titlePart}`.trim();
+  // La búsqueda arranca con el NOMBRE del archivo (más limpio que los tags ID3)
+  $('#search-q').value = it.search_query || it.name;
+
+  // Metadata que se va a escribir (editable): arranca de lo detectado
+  $('#conf-title-lbl').textContent = it.type === 'album' ? 'Álbum' : 'Título';
+  $('#conf-artist').value = it.artist || '';
+  $('#conf-title').value = it.type === 'album' ? (it.album || '') : (it.title || '');
 
   setGenre(it.conf.genre || '');
   $('#conf-label').value = it.conf.label || '';
@@ -373,6 +378,9 @@ function selectResult(i) {
   setGenre(r.genre || '');
   $('#conf-label').value = r.label || '';
   $('#conf-year').value = r.year || '';
+  // Corregir la metadata con los datos del release elegido
+  if (r.artist) $('#conf-artist').value = r.artist;
+  if (r.title) $('#conf-title').value = r.title;
   updatePreview();
 }
 
@@ -403,6 +411,13 @@ async function confirmCurrent() {
     setSearchStatus('✗ Completá género, sello y año antes de confirmar', 't-flag');
     return;
   }
+  // Guardar la metadata editada (se escribe en los tags al mover)
+  const artist = $('#conf-artist').value.trim();
+  const titleVal = $('#conf-title').value.trim();
+  it.artist = artist;
+  if (it.type === 'album') it.album = titleVal;
+  else it.title = titleVal;
+
   it.conf = { genre: g, label: l, year: y };
   it.status = 'confirmed';
   it.flag = '';

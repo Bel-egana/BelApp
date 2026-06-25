@@ -41,6 +41,7 @@ def test_load_tracks_lee_y_parsea(tmp_path):
     assert it["artist"] == "CamelPhat"
     assert it["title"] == "For A Feeling"
     assert it["is_dup"] is False
+    assert it["search_query"] == "CamelPhat For A Feeling"   # desde el nombre del archivo
 
 
 def test_load_tracks_ignora_no_audio_y_repetidos(tmp_path):
