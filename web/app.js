@@ -309,10 +309,11 @@ function loadItem(idx) {
   // La búsqueda arranca con el NOMBRE del archivo (más limpio que los tags ID3)
   $('#search-q').value = it.search_query || it.name;
 
-  // Metadata que se va a escribir (editable): arranca de lo detectado
+  // Metadata que se va a escribir (editable): arranca de la data del NOMBRE
+  // del archivo (la del track real), no de Discogs (que trae el álbum).
   $('#conf-title-lbl').textContent = it.type === 'album' ? 'Álbum' : 'Título';
-  $('#conf-artist').value = it.artist || '';
-  $('#conf-title').value = it.type === 'album' ? (it.album || '') : (it.title || '');
+  $('#conf-artist').value = it.name_artist || it.artist || '';
+  $('#conf-title').value = it.name_title || '';
 
   setGenre(it.conf.genre || '');
   $('#conf-label').value = it.conf.label || '';
@@ -375,12 +376,11 @@ function selectResult(i) {
   document.querySelectorAll('#tbl-results tbody tr').forEach(
     (tr, j) => tr.classList.toggle('sel', j === i));
   const r = results[i];
+  // Discogs aporta género/sello/año. Artista/Título NO se tocan: el resultado
+  // es un release (su "título" es el álbum, no el track). Quedan los del archivo.
   setGenre(r.genre || '');
   $('#conf-label').value = r.label || '';
   $('#conf-year').value = r.year || '';
-  // Corregir la metadata con los datos del release elegido
-  if (r.artist) $('#conf-artist').value = r.artist;
-  if (r.title) $('#conf-title').value = r.title;
   updatePreview();
 }
 

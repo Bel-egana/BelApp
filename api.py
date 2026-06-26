@@ -146,6 +146,8 @@ class Api:
         query = f"{parsed.get('artist', '')} {parsed.get('title', '')}".strip() or Path(p.name).stem
         return {'type': 'track', 'name': p.name, 'path': str(p),
                 'folder_name': '', 'search_query': query,
+                'name_artist': parsed.get('artist', ''),
+                'name_title': parsed.get('title', ''),
                 'artist': id3.get('artist') or parsed.get('artist', ''),
                 'title': id3.get('title') or parsed.get('title', ''),
                 'album': '',
@@ -168,6 +170,8 @@ class Api:
         query = f"{parsed.get('artist', '')} {parsed.get('album', '')}".strip() or fp.name
         return {'type': 'album', 'name': fp.name, 'path': str(fp),
                 'folder_name': fp.name, 'search_query': query,
+                'name_artist': parsed.get('artist', ''),
+                'name_title': parsed.get('album', ''),
                 'artist': id3.get('artist') or parsed.get('artist', ''),
                 'title': '',
                 'album': id3.get('album') or parsed.get('album', ''),
