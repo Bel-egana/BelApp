@@ -103,3 +103,43 @@ def test_toda_categoria_del_map_es_valida():
     # Coherencia: todo lo que mapea GENRE_MAP debe ser una categoría de Bel
     for categoria in GENRE_MAP.values():
         assert categoria in BEL_GENRES
+
+
+# ── Específico (12) -> carpeta (4): broad_from_specific ───────────────────────
+
+def test_broad_from_specific_techno_y_familia():
+    from core.genres import broad_from_specific
+    assert broad_from_specific("Techno") == "Melodic Techno & Techno"
+    assert broad_from_specific("Melodic Techno") == "Melodic Techno & Techno"
+    assert broad_from_specific("Acid Techno") == "Melodic Techno & Techno"
+
+
+def test_broad_from_specific_houses():
+    from core.genres import broad_from_specific
+    assert broad_from_specific("Deep House") == "Deep & Progressive House"
+    assert broad_from_specific("Melodic House") == "Deep & Progressive House"
+    assert broad_from_specific("Progressive House") == "Deep & Progressive House"
+    assert broad_from_specific("Tech House") == "Deep & Progressive House"
+    assert broad_from_specific("Afro / Organic House") == "Deep & Progressive House"
+    assert broad_from_specific("Indie Dance") == "Deep & Progressive House"
+
+
+def test_broad_from_specific_psy_y_trance():
+    from core.genres import broad_from_specific
+    assert broad_from_specific("Psytrance") == "Psychedelic Trance"
+    assert broad_from_specific("Progressive Psy") == "Psychedelic Trance"
+    assert broad_from_specific("Trance") == "Trance"
+
+
+def test_broad_from_specific_vacio_o_desconocido():
+    from core.genres import broad_from_specific
+    assert broad_from_specific("") == ""
+    assert broad_from_specific(None) == ""
+    assert broad_from_specific("Reggaeton") == ""
+
+
+def test_los_12_especificos_tienen_carpeta_valida():
+    # Coherencia: cada uno de los 12 mapea a una de las 4 carpetas.
+    from core.genres import broad_from_specific
+    for g in BEL_GENRES_SPECIFIC:
+        assert broad_from_specific(g) in BEL_GENRES

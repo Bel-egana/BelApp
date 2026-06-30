@@ -73,7 +73,12 @@ function addItems(newItems) {
     it.id = state.nextId++;
     it.status = 'pending';
     it.flag = '';
-    it.conf = { genre: it.genre, label: it.label, year: it.year };
+    // Carpeta sugerida: deducida del género específico (decisiones de Bel);
+    // si no hay específico, cae en lo que detectó format_genre.
+    const spec = it.genre_specific || '';
+    const folder = (spec && SPEC2BROAD[spec]) || it.genre || '';
+    it.conf = { genre: folder, genre_specific: spec,
+                label: it.label, year: it.year };
     state.items.push(it);
   });
   renderLoadTable();
@@ -239,13 +244,25 @@ let curIdx = -1;
 let results = [];
 let selResult = -1;
 let searchSeq = 0;
-let GENRES = [];
+let GENRES = [];           // las 4 carpetas
+let GENRES_SPEC = [];      // los 12 géneros (para el tag)
+let SPEC2BROAD = {};       // mapa género específico -> carpeta
 
-/* Desplegable de género: siempre muestra las categorías de Bel; si el valor
-   que trae Discogs no es una de ellas, lo agrega como opción extra. */
+/* Desplegable de CARPETA (4): siempre muestra las categorías de Bel; si el
+   valor que trae Discogs no es una de ellas, lo agrega como opción extra. */
 function setGenre(value) {
   const sel = $('#conf-genre');
   const opts = GENRES.slice();
+  if (value && !opts.includes(value)) opts.unshift(value);
+  sel.innerHTML = '<option value="">—</option>' +
+    opts.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  sel.value = value || '';
+}
+
+/* Desplegable de GÉNERO específico (12): el que se escribe en el tag. */
+function setGenreSpecific(value) {
+  const sel = $('#conf-genre-specific');
+  const opts = GENRES_SPEC.slice();
   if (value && !opts.includes(value)) opts.unshift(value);
   sel.innerHTML = '<option value="">—</option>' +
     opts.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
@@ -315,6 +332,7 @@ function loadItem(idx) {
   $('#conf-artist').value = it.name_artist || it.artist || '';
   $('#conf-title').value = it.name_title || '';
 
+  setGenreSpecific(it.conf.genre_specific || '');
   setGenre(it.conf.genre || '');
   $('#conf-label').value = it.conf.label || '';
   $('#conf-year').value = it.conf.year || '';
@@ -376,9 +394,10 @@ function selectResult(i) {
   document.querySelectorAll('#tbl-results tbody tr').forEach(
     (tr, j) => tr.classList.toggle('sel', j === i));
   const r = results[i];
-  // Discogs aporta género/sello/año. Artista/Título NO se tocan: el resultado
-  // es un release (su "título" es el álbum, no el track). Quedan los del archivo.
-  setGenre(r.genre || '');
+  // Discogs aporta sello/año (y la carpeta SOLO si quedó vacía: el género real
+  // sale del tag del track, no de Discogs). Artista/Título NO se tocan: el
+  // resultado es un release (su "título" es el álbum, no el track).
+  if (!$('#conf-genre').value.trim()) setGenre(r.genre || '');
   $('#conf-label').value = r.label || '';
   $('#conf-year').value = r.year || '';
   updatePreview();
@@ -418,7 +437,8 @@ async function confirmCurrent() {
   if (it.type === 'album') it.album = titleVal;
   else it.title = titleVal;
 
-  it.conf = { genre: g, label: l, year: y };
+  const gs = $('#conf-genre-specific').value.trim();
+  it.conf = { genre: g, genre_specific: gs, label: l, year: y };
   it.status = 'confirmed';
   it.flag = '';
   it.destination = await api().preview_destination(
@@ -475,6 +495,13 @@ $('#btn-flag').addEventListener('click', () => {
   $(sel).addEventListener('input', updatePreview);
 });
 
+// Al cambiar el género específico (tag), re-sugerir la carpeta (4).
+$('#conf-genre-specific').addEventListener('change', () => {
+  const spec = $('#conf-genre-specific').value.trim();
+  if (spec && SPEC2BROAD[spec]) setGenre(SPEC2BROAD[spec]);
+  updatePreview();
+});
+
 document.getElementById('nav-buscar').addEventListener('click', () => enterBuscar(false));
 
 /* ── Vista Resultado: mover + deshacer ───────────────────── */
@@ -496,7 +523,8 @@ async function moveConfirmed() {
   const payload = ready.map((i) => ({
     type: i.type, path: i.path, name: i.name,
     artist: i.artist, title: i.title, album: i.album,
-    genre: i.conf.genre, label: i.conf.label, year: i.conf.year,
+    genre: i.conf.genre, genre_specific: i.conf.genre_specific,
+    label: i.conf.label, year: i.conf.year,
   }));
   const res = await api().move_items(
     payload, $('#base-path').value.trim(), $('#period').value.trim());
@@ -739,7 +767,10 @@ window.addEventListener('pywebviewready', async () => {
     $('#base-path').value = cfg.base_path;
     $('#token').value = cfg.discogs_token;
     GENRES = await api().get_genres();
+    GENRES_SPEC = await api().get_genres_specific();
+    SPEC2BROAD = await api().get_specific_to_broad();
     setGenre('');
+    setGenreSpecific('');
     $('#period').value = defaultPeriod();
     await refreshPeriodCount();
     $('#status').textContent =

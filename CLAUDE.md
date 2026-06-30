@@ -51,7 +51,8 @@ Decisiones: "Melodic House & Techno" (Beatport) → **Melodic Techno**; prog+upl
 - Operaciones de archivo con guardas: no pisa destino existente, captura permisos. Hay "Deshacer" (último movimiento) y "Corregir ubicación".
 - Dedup de carga: por **ruta completa** del archivo (dos archivos distintos con igual nombre sí entran).
 - Búsqueda en Discogs: arranca del **nombre del archivo** (no de los tags ID3, que suelen venir sucios).
-- Campos Artista/Título (en "Datos para mover"): arrancan de la data del **nombre del archivo**; elegir un resultado de Discogs llena Género/Sello/Año pero **NO** pisa Artista/Título (el "título" de Discogs es el del álbum, no el del track). Para un EP/álbum el campo se llama "Álbum".
+- Campos Artista/Título (en "Datos para mover"): arrancan de la data del **nombre del archivo**; elegir un resultado de Discogs llena Sello/Año (y la Carpeta solo si está vacía) pero **NO** pisa Artista/Título (el "título" de Discogs es el del álbum, no el del track). Para un EP/álbum el campo se llama "Álbum".
+- **Dos géneros, separados** (al mover): el campo **"Género (va al tag)"** usa los **12 específicos** (sale del tag que el archivo ya trae, vía `map_genre_specific`, editable) y es lo que se **escribe en el tag ID3/FLAC** (para las playlists de Traktor). El campo **"Carpeta (en disco)"** usa los **4 amplios** y define la carpeta física; se **deduce** del específico con `broad_from_specific`/`SPECIFIC_TO_BROAD` pero es editable (caso Shamanic Tales: tag real ≠ carpeta elegida). Si no hay específico, el tag cae en el amplio. `item['genre']`=carpeta, `item['genre_specific']`=tag.
 - Tope `MAX_ITEMS = 25` ítems por tanda.
 - Diálogos de archivo arrancan en la carpeta base (Música) y recuerdan la última usada.
 

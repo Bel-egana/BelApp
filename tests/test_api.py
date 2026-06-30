@@ -176,6 +176,33 @@ def test_get_genres_devuelve_las_categorias(tmp_path):
     assert "Melodic Techno & Techno" in genres
 
 
+def test_get_genres_specific_devuelve_los_12(tmp_path):
+    api = _api(tmp_path)
+    g = api.get_genres_specific()
+    assert len(g) == 12
+    assert "Techno" in g and "Psytrance" in g and "Deep House" in g
+
+
+def test_get_specific_to_broad_mapea_12_a_4(tmp_path):
+    api = _api(tmp_path)
+    m = api.get_specific_to_broad()
+    assert m["Techno"] == "Melodic Techno & Techno"
+    assert m["Deep House"] == "Deep & Progressive House"
+    assert m["Psytrance"] == "Psychedelic Trance"
+    assert len(m) == 12
+
+
+def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    f = tmp_path / "A - T.mp3"
+    f.write_bytes(b"")
+    # Beatport etiqueta así; debe detectarse como "Melodic Techno" (de los 12)
+    write_id3_tags(f, "A", "T", "", "Lab", "Melodic House & Techno", "2020")
+    out = api.load_tracks([str(f)], [], 0)
+    assert out["items"][0]["genre_specific"] == "Melodic Techno"
+
+
 # ── Vista Resultado: mover + deshacer ─────────────────────────────────────────
 
 def _track_item(path, **kw):
@@ -202,6 +229,38 @@ def test_move_track_escribe_tags_historial_txt(tmp_path):
     assert any(h["destino"] == str(dest) for h in hist)
     txt = base / "belapp_2026_06.txt"
     assert str(dest) in txt.read_text(encoding="utf-8")
+
+
+def test_move_escribe_especifico_en_tag_y_amplio_en_carpeta(tmp_path):
+    # Caso Shamanic Tales: tag con el género real, carpeta donde Bel decide.
+    from core.metadata import read_id3
+    api = _api(tmp_path)
+    base = tmp_path / "M"
+    base.mkdir()
+    src = tmp_path / "A - T.mp3"
+    src.write_bytes(b"")
+    item = _track_item(src, genre="Psychedelic Trance",
+                       genre_specific="Melodic Techno")
+    res = api.move_items([item], str(base), "2026_06")
+    assert res["moved"] == 1
+    # La carpeta usa el amplio (genre):
+    dest = base / "Psychedelic Trance" / "Iboga" / "2012" / "A - T.mp3"
+    assert dest.exists()
+    # El tag usa el específico (genre_specific):
+    assert read_id3(dest).get("genre") == "Melodic Techno"
+
+
+def test_move_sin_especifico_usa_el_amplio_en_el_tag(tmp_path):
+    # Compatibilidad: si no hay género específico, el tag usa el amplio.
+    from core.metadata import read_id3
+    api = _api(tmp_path)
+    base = tmp_path / "M"
+    base.mkdir()
+    src = tmp_path / "A - T.mp3"
+    src.write_bytes(b"")
+    api.move_items([_track_item(src)], str(base), "2026_06")
+    dest = base / "Trance" / "Iboga" / "2012" / "A - T.mp3"
+    assert read_id3(dest).get("genre") == "Trance"
 
 
 def test_move_no_pisa_destino_existente(tmp_path):

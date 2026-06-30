@@ -16,7 +16,8 @@ from urllib.parse import quote
 from core import discogs as discogs_core
 from core.config import load_config, save_config
 from core.paths import frozen_app_dir
-from core.genres import BEL_GENRES, format_genre
+from core.genres import (BEL_GENRES, BEL_GENRES_SPECIFIC, SPECIFIC_TO_BROAD,
+                         format_genre, map_genre_specific)
 from core.history import (build_name_index, find_duplicate, load_history,
                           save_history)
 from core.metadata import is_audio, read_id3, write_id3_tags
@@ -110,6 +111,14 @@ class Api:
     def get_genres(self):
         return list(BEL_GENRES)
 
+    def get_genres_specific(self):
+        return list(BEL_GENRES_SPECIFIC)
+
+    def get_specific_to_broad(self):
+        """Mapa género específico (12) -> carpeta (4), para que el front
+        deduzca sola la carpeta a partir del género del tag."""
+        return dict(SPECIFIC_TO_BROAD)
+
     def search_discogs(self, query, artist_fallback=''):
         """Busca en Discogs con reintento por artista. Nunca lanza: {error} en fallas."""
         token = load_config(self._config_path).get('discogs_token', '')
@@ -152,6 +161,7 @@ class Api:
                 'title': id3.get('title') or parsed.get('title', ''),
                 'album': '',
                 'genre': format_genre(id3.get('genre', '')),
+                'genre_specific': map_genre_specific(id3.get('genre', '')),
                 'label': id3.get('label', ''), 'year': id3.get('year', ''),
                 'has_id3': bool(id3), 'n_tracks': 1,
                 'is_dup': dup is not None,
@@ -176,6 +186,7 @@ class Api:
                 'title': '',
                 'album': id3.get('album') or parsed.get('album', ''),
                 'genre': format_genre(id3.get('genre', '')),
+                'genre_specific': map_genre_specific(id3.get('genre', '')),
                 'label': id3.get('label', ''), 'year': id3.get('year', ''),
                 'has_id3': bool(id3), 'n_tracks': len(audio),
                 'is_dup': dup is not None,
@@ -318,8 +329,9 @@ class Api:
                         L(f"⚠ Ya existe: {nm}", 'warn'); continue
                     shutil.move(str(src), str(dest))
                     title = it.get('title') or dest.stem
+                    tag_genre = it.get('genre_specific') or it['genre']
                     ok = write_id3_tags(dest, it['artist'], title, '',
-                                        it['label'], it['genre'], it['year'])
+                                        it['label'], tag_genre, it['year'])
                     L(f"✓ {nm}{' [tags ✓]' if ok else ''}", 'success')
                     self._last_move.append(
                         {'type': 'file', 'src': str(src), 'dest': str(dest)})
@@ -342,6 +354,7 @@ class Api:
                     self._last_move.append(
                         {'type': 'folder', 'src': str(src_f), 'dest': str(dest)})
                     tagged = total = 0
+                    tag_genre = it.get('genre_specific') or it['genre']
                     for tf in sorted(dest.iterdir()):
                         if not (tf.is_file() and is_audio(tf.name)):
                             continue
@@ -349,7 +362,7 @@ class Api:
                         ap = parse_filename(tf.name)
                         if write_id3_tags(tf, it['artist'] or ap.get('artist', ''),
                                           ap.get('title', tf.stem), it.get('album') or nm,
-                                          it['label'], it['genre'], it['year']):
+                                          it['label'], tag_genre, it['year']):
                             tagged += 1
                         new_hist.append({
                             'fecha': now,

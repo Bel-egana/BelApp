@@ -104,3 +104,30 @@ def map_genre_specific(raw):
         if clave in low:
             return categoria
     return ''
+
+
+# A qué carpeta (de las 4) pertenece cada género específico (de los 12).
+# Sirve para que, al mover, la app sugiera sola la carpeta a partir del
+# género específico que va al tag (el usuario puede sobrescribirla).
+SPECIFIC_TO_BROAD = {
+    'Melodic Techno':       'Melodic Techno & Techno',
+    'Techno':               'Melodic Techno & Techno',
+    'Acid Techno':          'Melodic Techno & Techno',
+    'Deep House':           'Deep & Progressive House',
+    'Melodic House':        'Deep & Progressive House',
+    'Progressive House':    'Deep & Progressive House',
+    'Tech House':           'Deep & Progressive House',
+    'Afro / Organic House': 'Deep & Progressive House',
+    'Indie Dance':          'Deep & Progressive House',
+    'Trance':               'Trance',
+    'Psytrance':            'Psychedelic Trance',
+    'Progressive Psy':      'Psychedelic Trance',
+}
+
+
+def broad_from_specific(specific):
+    """Devuelve la carpeta (1 de las 4) que le corresponde a un género
+    específico (1 de los 12). '' si está vacío o no es uno conocido."""
+    if not specific:
+        return ''
+    return SPECIFIC_TO_BROAD.get(specific, '')
