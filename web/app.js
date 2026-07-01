@@ -411,9 +411,12 @@ function formValid() {
   return curIdx >= 0 && CONF_FIELDS.every((sel) => $(sel).value.trim() !== '');
 }
 
-// Habilita el botón Confirmar solo cuando están los 6 campos completos.
+// Habilita Confirmar solo si el ítem actual está pendiente y con los 6 campos.
+// (Al confirmarlo pasa a 'confirmed' -> el botón se vuelve a grisar.)
 function updateConfirmEnabled() {
-  $('#btn-confirm').disabled = !formValid();
+  const it = curIdx >= 0 ? state.items[curIdx] : null;
+  const confirmable = !!it && it.status !== 'confirmed' && formValid();
+  $('#btn-confirm').disabled = !confirmable;
 }
 
 async function updatePreview() {
@@ -461,6 +464,7 @@ async function confirmCurrent() {
     it.destination = await api().preview_destination(
       $('#base-path').value.trim(), g, l, y, it.name);
     renderItemList();
+    updateConfirmEnabled();   // el ítem quedó confirmado -> el botón se grisa
     const nxt = nextPending();
     if (nxt >= 0) loadItem(nxt);
     else setSearchStatus('✓ Todos los ítems procesados — dale a ▶ Mover', 't-ok');
@@ -484,11 +488,20 @@ $('#btn-use').addEventListener('click', () => {
 
 $('#btn-confirm').addEventListener('click', confirmCurrent);
 
-// Revalidar el botón Confirmar (y el preview) cuando se editan los 6 campos.
+// Al editar cualquiera de los 6 campos: si el ítem ya estaba confirmado, vuelve
+// a 'pendiente' (para poder reconfirmar), y se revalida el botón y el preview.
+function onConfFieldEdit() {
+  const it = curIdx >= 0 ? state.items[curIdx] : null;
+  if (it && it.status === 'confirmed') {
+    it.status = 'pending';
+    renderItemList();
+  }
+  updatePreview();
+}
 CONF_FIELDS.forEach((sel) => {
   const el = $(sel);
-  el.addEventListener('input', updatePreview);
-  el.addEventListener('change', updatePreview);
+  el.addEventListener('input', onConfFieldEdit);
+  el.addEventListener('change', onConfFieldEdit);
 });
 
 $('#btn-discard').addEventListener('click', () => {
