@@ -197,10 +197,10 @@ def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):
     api = _api(tmp_path)
     f = tmp_path / "A - T.mp3"
     f.write_bytes(b"")
-    # Beatport etiqueta así; debe detectarse como "Melodic Techno" (de los 12)
+    # Beatport etiqueta así; debe detectarse como "Ethereal / Melodic Techno" (de los 12)
     write_id3_tags(f, "A", "T", "", "Lab", "Melodic House & Techno", "2020")
     out = api.load_tracks([str(f)], [], 0)
-    assert out["items"][0]["genre_specific"] == "Melodic Techno"
+    assert out["items"][0]["genre_specific"] == "Ethereal / Melodic Techno"
 
 
 # ── Vista Resultado: mover + deshacer ─────────────────────────────────────────

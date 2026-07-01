@@ -59,7 +59,7 @@ def format_genre(raw):
 # la biblioteca hacia esta lista curada.
 # ─────────────────────────────────────────────────────────────────────────────
 BEL_GENRES_SPECIFIC = [
-    'Melodic Techno', 'Techno', 'Acid Techno', 'Deep House', 'Melodic House',
+    'Ethereal / Melodic Techno', 'Techno', 'Acid Techno', 'Deep House', 'Melodic House',
     'Progressive House', 'Tech House', 'Afro / Organic House', 'Indie Dance',
     'Trance', 'Psytrance', 'Progressive Psy',
 ]
@@ -68,9 +68,9 @@ BEL_GENRES_SPECIFIC = [
 # matchea, por eso las más específicas van primero. Lo que no matchea queda '' .
 SPECIFIC_RULES = [
     ('acid techno',             'Acid Techno'),
-    ('melodic house & techno',  'Melodic Techno'),   # Beatport los junta -> Bel: Melodic Techno
-    ('melodic house and techno', 'Melodic Techno'),
-    ('melodic techno',          'Melodic Techno'),
+    ('melodic house & techno',  'Ethereal / Melodic Techno'),   # Beatport los junta -> Bel: Ethereal / Melodic Techno
+    ('melodic house and techno', 'Ethereal / Melodic Techno'),
+    ('melodic techno',          'Ethereal / Melodic Techno'),
     ('progressive psy',         'Progressive Psy'),
     ('iboga',                   'Progressive Psy'),
     ('tech house',              'Tech House'),
@@ -110,7 +110,7 @@ def map_genre_specific(raw):
 # Sirve para que, al mover, la app sugiera sola la carpeta a partir del
 # género específico que va al tag (el usuario puede sobrescribirla).
 SPECIFIC_TO_BROAD = {
-    'Melodic Techno':       'Melodic Techno & Techno',
+    'Ethereal / Melodic Techno': 'Melodic Techno & Techno',
     'Techno':               'Melodic Techno & Techno',
     'Acid Techno':          'Melodic Techno & Techno',
     'Deep House':           'Deep & Progressive House',

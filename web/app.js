@@ -403,7 +403,21 @@ function selectResult(i) {
   updatePreview();
 }
 
+// Los 6 campos de "Datos para mover" que tienen que estar completos para confirmar.
+const CONF_FIELDS = ['#conf-artist', '#conf-title', '#conf-genre-specific',
+                     '#conf-genre', '#conf-label', '#conf-year'];
+
+function formValid() {
+  return curIdx >= 0 && CONF_FIELDS.every((sel) => $(sel).value.trim() !== '');
+}
+
+// Habilita el botón Confirmar solo cuando están los 6 campos completos.
+function updateConfirmEnabled() {
+  $('#btn-confirm').disabled = !formValid();
+}
+
 async function updatePreview() {
+  updateConfirmEnabled();
   const el = $('#dest-preview');
   if (curIdx < 0) return;
   const g = $('#conf-genre').value.trim();
@@ -422,31 +436,37 @@ async function updatePreview() {
 
 async function confirmCurrent() {
   if (curIdx < 0) return;
+  // Guarda: no confirmar sin los 6 campos (el botón ya está grisado, pero
+  // reforzamos por si se llama de otra forma, ej. doble-clic en un resultado).
+  if (!formValid()) {
+    setSearchStatus('✗ Completá los 6 campos (artista, título, género, carpeta, sello y año) antes de confirmar', 't-flag');
+    return;
+  }
   const it = state.items[curIdx];
   const g = $('#conf-genre').value.trim();
   const l = $('#conf-label').value.trim();
   const y = $('#conf-year').value.trim();
-  if (!g || !l || !y) {
-    setSearchStatus('✗ Completá género, sello y año antes de confirmar', 't-flag');
-    return;
-  }
-  // Guardar la metadata editada (se escribe en los tags al mover)
-  const artist = $('#conf-artist').value.trim();
-  const titleVal = $('#conf-title').value.trim();
-  it.artist = artist;
-  if (it.type === 'album') it.album = titleVal;
-  else it.title = titleVal;
+  try {
+    // Guardar la metadata editada (se escribe en los tags al mover)
+    const artist = $('#conf-artist').value.trim();
+    const titleVal = $('#conf-title').value.trim();
+    it.artist = artist;
+    if (it.type === 'album') it.album = titleVal;
+    else it.title = titleVal;
 
-  const gs = $('#conf-genre-specific').value.trim();
-  it.conf = { genre: g, genre_specific: gs, label: l, year: y };
-  it.status = 'confirmed';
-  it.flag = '';
-  it.destination = await api().preview_destination(
-    $('#base-path').value.trim(), g, l, y, it.name);
-  renderItemList();
-  const nxt = nextPending();
-  if (nxt >= 0) loadItem(nxt);
-  else setSearchStatus('✓ Todos los ítems procesados — dale a ▶ Mover', 't-ok');
+    const gs = $('#conf-genre-specific').value.trim();
+    it.conf = { genre: g, genre_specific: gs, label: l, year: y };
+    it.status = 'confirmed';
+    it.flag = '';
+    it.destination = await api().preview_destination(
+      $('#base-path').value.trim(), g, l, y, it.name);
+    renderItemList();
+    const nxt = nextPending();
+    if (nxt >= 0) loadItem(nxt);
+    else setSearchStatus('✓ Todos los ítems procesados — dale a ▶ Mover', 't-ok');
+  } catch (e) {
+    setSearchStatus('✗ Error al confirmar: ' + (e && e.message ? e.message : e), 't-flag');
+  }
 }
 
 $('#btn-search').addEventListener('click', doSearch);
@@ -463,6 +483,13 @@ $('#btn-use').addEventListener('click', () => {
 });
 
 $('#btn-confirm').addEventListener('click', confirmCurrent);
+
+// Revalidar el botón Confirmar (y el preview) cuando se editan los 6 campos.
+CONF_FIELDS.forEach((sel) => {
+  const el = $(sel);
+  el.addEventListener('input', updatePreview);
+  el.addEventListener('change', updatePreview);
+});
 
 $('#btn-discard').addEventListener('click', () => {
   if (curIdx < 0) return;

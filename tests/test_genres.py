@@ -16,10 +16,12 @@ from core.genres import (BEL_GENRES, BEL_GENRES_SPECIFIC, GENRE_MAP,
 
 # ── Taxonomía específica (normalizador de Traktor) ───────────────────────────
 
-def test_specific_melodic_house_y_techno_va_a_melodic_techno():
-    # Decisión de Bel: el combinado de Beatport -> Melodic Techno
-    assert map_genre_specific("Melodic House & Techno") == "Melodic Techno"
-    assert map_genre_specific("Deep House, Melodic House & Techno, Progressive House") == "Melodic Techno"
+def test_specific_melodic_house_y_techno_va_a_ethereal_melodic_techno():
+    # Decisión de Bel: el subgénero se llama "Ethereal / Melodic Techno";
+    # el combinado de Beatport (Melodic House & Techno) también cae ahí.
+    assert map_genre_specific("Melodic Techno") == "Ethereal / Melodic Techno"
+    assert map_genre_specific("Melodic House & Techno") == "Ethereal / Melodic Techno"
+    assert map_genre_specific("Deep House, Melodic House & Techno, Progressive House") == "Ethereal / Melodic Techno"
 
 
 def test_specific_techno_variantes():
@@ -110,7 +112,7 @@ def test_toda_categoria_del_map_es_valida():
 def test_broad_from_specific_techno_y_familia():
     from core.genres import broad_from_specific
     assert broad_from_specific("Techno") == "Melodic Techno & Techno"
-    assert broad_from_specific("Melodic Techno") == "Melodic Techno & Techno"
+    assert broad_from_specific("Ethereal / Melodic Techno") == "Melodic Techno & Techno"
     assert broad_from_specific("Acid Techno") == "Melodic Techno & Techno"
 
 
