@@ -244,6 +244,7 @@ let curIdx = -1;
 let results = [];
 let selResult = -1;
 let searchSeq = 0;
+let labelWarningActive = false;   // aviso de sello parecido sin resolver
 let GENRES = [];           // las 4 carpetas
 let GENRES_SPEC = [];      // los 12 géneros (para el tag)
 let SPEC2BROAD = {};       // mapa género específico -> carpeta
@@ -413,11 +414,12 @@ function formValid() {
   return curIdx >= 0 && CONF_FIELDS.every((sel) => $(sel).value.trim() !== '');
 }
 
-// Habilita Confirmar solo si el ítem actual está pendiente y con los 6 campos.
-// (Al confirmarlo pasa a 'confirmed' -> el botón se vuelve a grisar.)
+// Habilita Confirmar solo si el ítem actual está pendiente, con los 6 campos,
+// y sin un aviso de sello parecido pendiente de decidir.
 function updateConfirmEnabled() {
   const it = curIdx >= 0 ? state.items[curIdx] : null;
-  const confirmable = !!it && it.status !== 'confirmed' && formValid();
+  const confirmable = !!it && it.status !== 'confirmed' && formValid()
+    && !labelWarningActive;
   $('#btn-confirm').disabled = !confirmable;
 }
 
@@ -440,33 +442,59 @@ async function updatePreview() {
 }
 
 // Aviso de sello parecido: si el Sello se parece a una carpeta que ya existe,
-// muestra un cartelito con un botón "Usar esa" (evita duplicados por typo/sufijo).
+// BLOQUEA Confirmar hasta que decidas "Usar esa" o "No, crear nueva".
+const HINT_BTN = 'margin-left:8px; padding:2px 10px; border-radius:6px; ' +
+  'background:transparent; cursor:pointer; font-size:12px;';
+
 async function checkLabelSuggestion() {
   const hint = $('#label-hint');
   const label = $('#conf-label').value.trim();
-  if (!label || curIdx < 0) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  if (!label || curIdx < 0) {
+    labelWarningActive = false;
+    hint.style.display = 'none'; hint.textContent = '';
+    updateConfirmEnabled(); return;
+  }
   let matches = [];
   try {
     matches = await api().suggest_labels($('#base-path').value.trim(), label);
   } catch (e) { matches = []; }
   if ($('#conf-label').value.trim() !== label) return;   // cambió mientras consultaba
-  if (!matches || !matches.length) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  if (!matches || !matches.length) {
+    labelWarningActive = false;
+    hint.style.display = 'none'; hint.textContent = '';
+    updateConfirmEnabled(); return;
+  }
   const sug = matches[0];
+  labelWarningActive = true;   // hay que decidir antes de poder confirmar
+  hint.style.color = '#fc0b91';
   hint.textContent = '⚠ Ya existe una carpeta parecida: "' + sug + '"  ';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.textContent = 'Usar esa';
-  btn.style.cssText = 'margin-left:8px; padding:2px 10px; border-radius:6px; ' +
-    'border:1px solid #fc0b91; background:transparent; color:#fc0b91; ' +
-    'cursor:pointer; font-size:12px;';
-  btn.addEventListener('click', () => {
+
+  const bUsar = document.createElement('button');
+  bUsar.type = 'button';
+  bUsar.textContent = 'Usar esa';
+  bUsar.style.cssText = HINT_BTN + 'border:1px solid #fc0b91; color:#fc0b91;';
+  bUsar.addEventListener('click', () => {
     $('#conf-label').value = sug;
-    hint.style.display = 'none';
-    hint.textContent = '';
+    labelWarningActive = false;
+    hint.style.display = 'none'; hint.textContent = '';
     updatePreview();
   });
-  hint.appendChild(btn);
+
+  const bNueva = document.createElement('button');
+  bNueva.type = 'button';
+  bNueva.textContent = 'No, crear nueva';
+  bNueva.style.cssText = HINT_BTN + 'border:1px solid #6b6b76; color:#b8b8c0;';
+  bNueva.addEventListener('click', () => {
+    labelWarningActive = false;
+    hint.style.color = '#7bd88f';
+    hint.textContent = '✓ Se creará "' + label + '" (carpeta nueva).';
+    updateConfirmEnabled();
+  });
+
+  hint.appendChild(bUsar);
+  hint.appendChild(bNueva);
   hint.style.display = '';
+  updateConfirmEnabled();
 }
 
 async function confirmCurrent() {
@@ -475,6 +503,10 @@ async function confirmCurrent() {
   // reforzamos por si se llama de otra forma, ej. doble-clic en un resultado).
   if (!formValid()) {
     setSearchStatus('✗ Completá los 6 campos (artista, título, género, carpeta, sello y año) antes de confirmar', 't-flag');
+    return;
+  }
+  if (labelWarningActive) {
+    setSearchStatus('✗ Decidí primero sobre la carpeta de sello parecida ("Usar esa" o "No, crear nueva")', 't-flag');
     return;
   }
   const it = state.items[curIdx];
