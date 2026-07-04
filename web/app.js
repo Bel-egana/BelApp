@@ -337,6 +337,7 @@ function loadItem(idx) {
   $('#conf-label').value = it.conf.label || '';
   $('#conf-year').value = it.conf.year || '';
   updatePreview();
+  checkLabelSuggestion();
 
   $('#tbl-results tbody').innerHTML = '';
   results = []; selResult = -1;
@@ -401,6 +402,7 @@ function selectResult(i) {
   $('#conf-label').value = r.label || '';
   $('#conf-year').value = r.year || '';
   updatePreview();
+  checkLabelSuggestion();
 }
 
 // Los 6 campos de "Datos para mover" que tienen que estar completos para confirmar.
@@ -435,6 +437,36 @@ async function updatePreview() {
     el.textContent = '→ completá género, sello y año';
     el.className = 'small muted';
   }
+}
+
+// Aviso de sello parecido: si el Sello se parece a una carpeta que ya existe,
+// muestra un cartelito con un botón "Usar esa" (evita duplicados por typo/sufijo).
+async function checkLabelSuggestion() {
+  const hint = $('#label-hint');
+  const label = $('#conf-label').value.trim();
+  if (!label || curIdx < 0) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  let matches = [];
+  try {
+    matches = await api().suggest_labels($('#base-path').value.trim(), label);
+  } catch (e) { matches = []; }
+  if ($('#conf-label').value.trim() !== label) return;   // cambió mientras consultaba
+  if (!matches || !matches.length) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  const sug = matches[0];
+  hint.textContent = '⚠ Ya existe una carpeta parecida: "' + sug + '"  ';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Usar esa';
+  btn.style.cssText = 'margin-left:8px; padding:2px 10px; border-radius:6px; ' +
+    'border:1px solid #fc0b91; background:transparent; color:#fc0b91; ' +
+    'cursor:pointer; font-size:12px;';
+  btn.addEventListener('click', () => {
+    $('#conf-label').value = sug;
+    hint.style.display = 'none';
+    hint.textContent = '';
+    updatePreview();
+  });
+  hint.appendChild(btn);
+  hint.style.display = '';
 }
 
 async function confirmCurrent() {
@@ -503,6 +535,9 @@ CONF_FIELDS.forEach((sel) => {
   el.addEventListener('input', onConfFieldEdit);
   el.addEventListener('change', onConfFieldEdit);
 });
+
+// Chequear sello parecido cada vez que se edita el campo Sello.
+$('#conf-label').addEventListener('input', checkLabelSuggestion);
 
 $('#btn-discard').addEventListener('click', () => {
   if (curIdx < 0) return;

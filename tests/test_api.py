@@ -203,6 +203,23 @@ def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):
     assert out["items"][0]["genre_specific"] == "Ethereal / Melodic Techno"
 
 
+def test_suggest_labels_detecta_parecidos(tmp_path):
+    api = _api(tmp_path)
+    base = tmp_path / "Musica"
+    for sello in ("Stil Vor Talent", "Set About Music", "Steyoyoke", "Sin Sello"):
+        (base / "Melodic Techno & Techno" / sello).mkdir(parents=True)
+    # typo/transposición -> sugiere la existente
+    assert "Stil Vor Talent" in api.suggest_labels(str(base), "Stir Vol Talent")
+    # sufijo (Music) -> sugiere la existente
+    assert "Set About Music" in api.suggest_labels(str(base), "Set About")
+    # idéntico a una existente -> no avisa (es reuso, no duplicado)
+    assert api.suggest_labels(str(base), "Steyoyoke") == []
+    # sello nuevo y realmente distinto -> no avisa
+    assert api.suggest_labels(str(base), "Anjunadeep") == []
+    # base inexistente -> no rompe
+    assert api.suggest_labels(str(tmp_path / "nope"), "X") == []
+
+
 # ── Vista Resultado: mover + deshacer ─────────────────────────────────────────
 
 def _track_item(path, **kw):

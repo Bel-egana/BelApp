@@ -20,6 +20,7 @@ from core.genres import (BEL_GENRES, BEL_GENRES_SPECIFIC, SPECIFIC_TO_BROAD,
                          format_genre, map_genre_specific)
 from core.history import (build_name_index, find_duplicate, load_history,
                           save_history)
+from core.labels import sellos_parecidos
 from core.metadata import is_audio, read_id3, write_id3_tags
 from core.normalizer import normalize_folder
 from core.organizer import build_path
@@ -44,6 +45,8 @@ class Api:
         self._last_txt = None
         self._last_base = None
         self._last_dir = None   # última carpeta usada en los diálogos
+        self._lbl_cache_base = None   # cache de carpetas de sello (por base)
+        self._lbl_cache = None
 
     def set_window(self, window):
         """La ventana se inyecta después de crearla (para diálogos nativos)."""
@@ -138,6 +141,32 @@ class Api:
 
     def preview_destination(self, base, genre, label, year, name):
         return str(build_path(base, genre, label, year, name))
+
+    def suggest_labels(self, base, label):
+        """Sellos ya existentes en disco parecidos a 'label' (para avisar de
+        duplicados tipo 'Set About' vs 'Set About Music'). Nunca lanza."""
+        try:
+            return sellos_parecidos(label, self._label_folders(base))
+        except Exception:
+            return []
+
+    def _label_folders(self, base):
+        """Nombres de carpetas de sello bajo base/Género/Sello (cacheado por base)."""
+        base = str(base or '')
+        if self._lbl_cache is not None and self._lbl_cache_base == base:
+            return self._lbl_cache
+        labels = set()
+        p = Path(base)
+        if p.is_dir():
+            for genero in p.iterdir():
+                if not genero.is_dir():
+                    continue
+                for sello in genero.iterdir():
+                    if sello.is_dir() and sello.name != 'Sin Sello':
+                        labels.add(sello.name)
+        self._lbl_cache_base = base
+        self._lbl_cache = sorted(labels)
+        return self._lbl_cache
 
     def open_beatport(self, query):
         webbrowser.open('https://www.beatport.com/search?q=' + quote(query))
@@ -305,6 +334,7 @@ class Api:
         self._last_move = []
         self._last_txt = str(self._txt_path(base_path, period))
         self._last_base = str(base_path)
+        self._lbl_cache = None   # se crearán carpetas: invalidar cache de sellos
 
         def L(text, kind):
             log.append({'text': text, 'kind': kind})
