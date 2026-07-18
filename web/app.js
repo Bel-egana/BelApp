@@ -207,14 +207,10 @@ $('#btn-normalize').addEventListener('click', async () => {
   const folder = await api().pick_folder();
   if (!folder) return;
   flashMsg('⏳ Analizando la carpeta…');
-  const r = await api().preview_normalize(folder);
+  const r = await api().review_folder_genres(folder);
   if (r.error) { await confirmModal('Normalizar géneros', '✗ ' + r.error); return; }
-  if (!r.changed.length) {
-    await confirmModal('Normalizar géneros',
-      `No hay géneros para normalizar de ${r.total} tracks.\n\n` +
-      `✓ ${r.already_ok} ya están en tus categorías\n` +
-      `— ${r.no_match} con género que no mapea\n` +
-      `? ${r.no_genre} sin género (necesitan Discogs)`);
+  if (!r.total) {
+    await confirmModal('Normalizar géneros', 'No hay tracks de audio en esa carpeta.');
     return;
   }
   openNormReview(r);
@@ -233,44 +229,50 @@ function openNormReview(r) {
   list.innerHTML = '';
   normRows = [];
   $('#norm-sub').textContent =
-    `${r.changed.length} cambios · ${r.already_ok} ya ok · ${r.no_match} no mapean · ` +
-    `${r.no_genre} sin género (de ${r.total} tracks). Revisá y corregí el destino si hace falta. ` +
-    'Solo toca el tag de género, NO mueve archivos.';
-  r.changed.forEach((c) => {
+    `${r.total} tracks · ${r.con_sugerencia} con sugerencia · ${r.sin_genero} sin género. ` +
+    'Elegí el género de cada uno (tildá el que quieras aplicar). ' +
+    'Solo toca el tag, NO mueve archivos.';
+  r.tracks.forEach((t) => {
     const row = document.createElement('div');
     row.className = 'norm-row';
 
     const chk = document.createElement('input');
-    chk.type = 'checkbox'; chk.checked = true;
+    chk.type = 'checkbox';
+    chk.checked = !!t.suggested;               // pre-tildado solo si hay sugerencia
     chk.addEventListener('change', updateNormCount);
 
     const name = document.createElement('div');
     name.className = 'nr-name';
-    name.textContent = normBase(c.path);
-    name.title = c.path;
+    name.textContent = normBase(t.path);
+    name.title = t.path;
 
     const old = document.createElement('div');
     old.className = 'nr-old';
-    old.textContent = (c.old || '(vacío)') + '  →';
+    old.textContent = (t.current || '(sin género)') + '  →';
 
     const sel = document.createElement('select');
+    const vacio = document.createElement('option');
+    vacio.value = ''; vacio.textContent = '—';
+    sel.appendChild(vacio);
     GENRES_SPEC.forEach((g) => {
       const o = document.createElement('option');
-      o.textContent = g;
-      if (g === c.new) o.selected = true;
+      o.value = g; o.textContent = g;
+      if (g === t.suggested) o.selected = true;
       sel.appendChild(o);
     });
+    // Elegir un género tilda la fila; volver a "—" la destilda.
+    sel.addEventListener('change', () => { chk.checked = !!sel.value; updateNormCount(); });
 
     row.append(chk, name, old, sel);
     list.appendChild(row);
-    normRows.push({ path: c.path, chk, sel });
+    normRows.push({ path: t.path, chk, sel });
   });
   updateNormCount();
   $('#norm-overlay').classList.add('show');
 }
 
 $('#norm-all').addEventListener('click', () => {
-  normRows.forEach((x) => { x.chk.checked = true; });
+  normRows.forEach((x) => { x.chk.checked = !!x.sel.value; });   // solo los que tienen género elegido
   updateNormCount();
 });
 $('#norm-none').addEventListener('click', () => {

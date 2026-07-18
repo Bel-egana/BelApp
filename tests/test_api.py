@@ -220,6 +220,31 @@ def test_suggest_labels_detecta_parecidos(tmp_path):
     assert api.suggest_labels(str(tmp_path / "nope"), "X") == []
 
 
+def test_review_folder_genres_lista_todos(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    base = tmp_path / "sello"; base.mkdir()
+
+    def mk(n, g):
+        f = base / n; f.write_bytes(b"")
+        if g is not None:
+            write_id3_tags(f, "Ar", "Ti", "", "La", g, "2023")
+        return f
+
+    mk("a.mp3", "Melodic House & Techno")   # mapea -> Ethereal / Melodic Techno
+    mk("b.mp3", "Blues")                     # no mapea -> suggested ''
+    mk("c.mp3", None)                        # sin género
+
+    r = api.review_folder_genres(str(base))
+    assert r["total"] == 3
+    assert r["sin_genero"] == 1
+    byname = {os.path.basename(t["path"]): t for t in r["tracks"]}
+    assert byname["a.mp3"]["suggested"] == "Ethereal / Melodic Techno"
+    assert byname["b.mp3"]["current"] == "Blues"
+    assert byname["b.mp3"]["suggested"] == ""
+    assert byname["c.mp3"]["current"] == ""
+
+
 def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
     from core.metadata import read_id3, write_id3_tags
     api = _api(tmp_path)

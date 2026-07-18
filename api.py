@@ -617,6 +617,27 @@ class Api:
             return {'error': 'Carpeta inválida.'}
         return normalize_folder(folder, dry_run=False)
 
+    def review_folder_genres(self, folder):
+        """Lista TODOS los tracks de audio de la carpeta con su género actual y
+        el sugerido (map_genre_specific; '' si no tiene género o no mapea).
+        Para la revisión/edición manual, track por track."""
+        if not folder or not Path(folder).is_dir():
+            return {'error': 'Carpeta inválida.'}
+        tracks, con_sug, sin_genero = [], 0, 0
+        for f in Path(folder).rglob('*'):
+            if not (f.is_file() and is_audio(f.name)):
+                continue
+            g = (read_id3(f).get('genre') or '').strip()
+            sug = map_genre_specific(g)
+            if not g:
+                sin_genero += 1
+            if sug:
+                con_sug += 1
+            tracks.append({'path': str(f), 'current': g, 'suggested': sug})
+        tracks.sort(key=lambda t: t['path'])
+        return {'tracks': tracks, 'total': len(tracks),
+                'con_sugerencia': con_sug, 'sin_genero': sin_genero}
+
     def apply_normalize_selected(self, items):
         """Aplica SOLO los cambios de género elegidos en la revisión.
 
