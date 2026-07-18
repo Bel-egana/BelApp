@@ -259,8 +259,11 @@
     <div class="modal-title">🎛 Revisar cambios de género</div>
     <div class="modal-msg" id="norm-sub"></div>
     <div class="norm-toolbar">
-      <button class="btn btn-ghost" id="norm-all">✓ Todos</button>
+      <button class="btn btn-ghost" id="norm-all">Tildar todos</button>
       <button class="btn btn-ghost" id="norm-none">Ninguno</button>
+      <span style="margin:0 2px 0 10px; color:var(--muted); font-size:12px">Asignar a tildados:</span>
+      <select id="norm-bulk"></select>
+      <button class="btn btn-ghost" id="norm-assign">Asignar</button>
       <span id="norm-count" class="muted small" style="margin-left:auto"></span>
     </div>
     <div id="norm-list" class="norm-list"></div>

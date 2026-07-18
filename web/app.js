@@ -219,26 +219,41 @@ $('#btn-normalize').addEventListener('click', async () => {
 function normBase(p) { return String(p).split(/[\\/]/).pop(); }
 
 function updateNormCount() {
-  const n = normRows.filter((x) => x.chk.checked).length;
-  $('#norm-count').textContent = `${n} de ${normRows.length} seleccionados`;
-  $('#norm-apply').disabled = n === 0;
+  const conGenero = normRows.filter((x) => x.sel.value).length;
+  const tildados = normRows.filter((x) => x.chk.checked).length;
+  $('#norm-count').textContent = `${conGenero} con género · ${tildados} tildados`;
+  $('#norm-apply').disabled = conGenero === 0;
 }
 
 function openNormReview(r) {
   const list = $('#norm-list');
   list.innerHTML = '';
   normRows = [];
+
+  // Desplegable de "asignar a tildados" (una sola vez).
+  const bulk = $('#norm-bulk');
+  if (!bulk.options.length) {
+    const ph = document.createElement('option');
+    ph.value = ''; ph.textContent = '(elegí género)';
+    bulk.appendChild(ph);
+    GENRES_SPEC.forEach((g) => {
+      const o = document.createElement('option');
+      o.value = g; o.textContent = g;
+      bulk.appendChild(o);
+    });
+  }
+
   $('#norm-sub').textContent =
     `${r.total} tracks · ${r.con_sugerencia} con sugerencia · ${r.sin_genero} sin género. ` +
-    'Elegí el género de cada uno (tildá el que quieras aplicar). ' +
-    'Solo toca el tag, NO mueve archivos.';
+    'Elegí el género en cada fila, o tildá varios que compartan género y usá "Asignar a tildados". ' +
+    'Se aplican los que tengan género elegido. Solo toca el tag, NO mueve archivos.';
+
   r.tracks.forEach((t) => {
     const row = document.createElement('div');
     row.className = 'norm-row';
 
     const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.checked = !!t.suggested;               // pre-tildado solo si hay sugerencia
+    chk.type = 'checkbox';                      // selección para asignar en lote
     chk.addEventListener('change', updateNormCount);
 
     const name = document.createElement('div');
@@ -257,11 +272,10 @@ function openNormReview(r) {
     GENRES_SPEC.forEach((g) => {
       const o = document.createElement('option');
       o.value = g; o.textContent = g;
-      if (g === t.suggested) o.selected = true;
+      if (g === t.suggested) o.selected = true;   // pre-carga la sugerencia si hay
       sel.appendChild(o);
     });
-    // Elegir un género tilda la fila; volver a "—" la destilda.
-    sel.addEventListener('change', () => { chk.checked = !!sel.value; updateNormCount(); });
+    sel.addEventListener('change', updateNormCount);
 
     row.append(chk, name, old, sel);
     list.appendChild(row);
@@ -272,17 +286,27 @@ function openNormReview(r) {
 }
 
 $('#norm-all').addEventListener('click', () => {
-  normRows.forEach((x) => { x.chk.checked = !!x.sel.value; });   // solo los que tienen género elegido
+  normRows.forEach((x) => { x.chk.checked = true; });
   updateNormCount();
 });
 $('#norm-none').addEventListener('click', () => {
   normRows.forEach((x) => { x.chk.checked = false; });
   updateNormCount();
 });
+$('#norm-assign').addEventListener('click', () => {
+  const g = $('#norm-bulk').value;
+  if (!g) { flashMsg('✗ Elegí un género arriba para asignar'); return; }
+  let n = 0;
+  normRows.forEach((x) => {
+    if (x.chk.checked) { x.sel.value = g; x.chk.checked = false; n++; }
+  });
+  flashMsg(n ? `✓ "${g}" asignado a ${n} track(s)` : '✗ Tildá primero los tracks a asignar');
+  updateNormCount();
+});
 $('#norm-cancel').addEventListener('click', () => $('#norm-overlay').classList.remove('show'));
 
 $('#norm-apply').addEventListener('click', async () => {
-  const items = normRows.filter((x) => x.chk.checked)
+  const items = normRows.filter((x) => x.sel.value)
     .map((x) => ({ path: x.path, new: x.sel.value }));
   if (!items.length) return;
   $('#norm-overlay').classList.remove('show');
