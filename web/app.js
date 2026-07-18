@@ -201,9 +201,12 @@ $('#btn-clear').addEventListener('click', async () => {
   }
 });
 
+let normRows = [];   // estado de la revisión de normalización
+
 $('#btn-normalize').addEventListener('click', async () => {
   const folder = await api().pick_folder();
   if (!folder) return;
+  flashMsg('⏳ Analizando la carpeta…');
   const r = await api().preview_normalize(folder);
   if (r.error) { await confirmModal('Normalizar géneros', '✗ ' + r.error); return; }
   if (!r.changed.length) {
@@ -214,19 +217,80 @@ $('#btn-normalize').addEventListener('click', async () => {
       `? ${r.no_genre} sin género (necesitan Discogs)`);
     return;
   }
-  const examples = r.changed.slice(0, 5).map((c) => `   • ${c.old} → ${c.new}`).join('\n');
-  const msg =
-    `Revisé ${r.total} tracks:\n\n` +
-    `✏ ${r.changed.length} para normalizar, por ejemplo:\n${examples}\n\n` +
-    `✓ ${r.already_ok} ya en tus categorías\n` +
-    `— ${r.no_match} no mapean (sin cambios)\n` +
-    `? ${r.no_genre} sin género (necesitan Discogs)\n\n` +
-    `¿Aplicar los ${r.changed.length} cambios? Solo toca el tag de género, NO mueve archivos.`;
-  if (!(await confirmModal('Normalizar géneros', msg))) return;
-  const res = await api().apply_normalize(folder);
+  openNormReview(r);
+});
+
+function normBase(p) { return String(p).split(/[\\/]/).pop(); }
+
+function updateNormCount() {
+  const n = normRows.filter((x) => x.chk.checked).length;
+  $('#norm-count').textContent = `${n} de ${normRows.length} seleccionados`;
+  $('#norm-apply').disabled = n === 0;
+}
+
+function openNormReview(r) {
+  const list = $('#norm-list');
+  list.innerHTML = '';
+  normRows = [];
+  $('#norm-sub').textContent =
+    `${r.changed.length} cambios · ${r.already_ok} ya ok · ${r.no_match} no mapean · ` +
+    `${r.no_genre} sin género (de ${r.total} tracks). Revisá y corregí el destino si hace falta. ` +
+    'Solo toca el tag de género, NO mueve archivos.';
+  r.changed.forEach((c) => {
+    const row = document.createElement('div');
+    row.className = 'norm-row';
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.checked = true;
+    chk.addEventListener('change', updateNormCount);
+
+    const name = document.createElement('div');
+    name.className = 'nr-name';
+    name.textContent = normBase(c.path);
+    name.title = c.path;
+
+    const old = document.createElement('div');
+    old.className = 'nr-old';
+    old.textContent = (c.old || '(vacío)') + '  →';
+
+    const sel = document.createElement('select');
+    GENRES_SPEC.forEach((g) => {
+      const o = document.createElement('option');
+      o.textContent = g;
+      if (g === c.new) o.selected = true;
+      sel.appendChild(o);
+    });
+
+    row.append(chk, name, old, sel);
+    list.appendChild(row);
+    normRows.push({ path: c.path, chk, sel });
+  });
+  updateNormCount();
+  $('#norm-overlay').classList.add('show');
+}
+
+$('#norm-all').addEventListener('click', () => {
+  normRows.forEach((x) => { x.chk.checked = true; });
+  updateNormCount();
+});
+$('#norm-none').addEventListener('click', () => {
+  normRows.forEach((x) => { x.chk.checked = false; });
+  updateNormCount();
+});
+$('#norm-cancel').addEventListener('click', () => $('#norm-overlay').classList.remove('show'));
+
+$('#norm-apply').addEventListener('click', async () => {
+  const items = normRows.filter((x) => x.chk.checked)
+    .map((x) => ({ path: x.path, new: x.sel.value }));
+  if (!items.length) return;
+  $('#norm-overlay').classList.remove('show');
+  flashMsg('⏳ Aplicando cambios…');
+  const res = await api().apply_normalize_selected(items);
+  const errTxt = (res.errors && res.errors.length)
+    ? `\n\n⚠ ${res.errors.length} con error (no se pudieron escribir).` : '';
   await confirmModal('Listo ✓',
-    `${res.changed.length} géneros normalizados a tus categorías.\n\n` +
-    'En Traktor: re-importá/actualizá y ordená por la columna Genre.');
+    `${res.applied} géneros actualizados.${errTxt}\n\n` +
+    'En Traktor: re-importá/actualizá la carpeta para ver los tags nuevos.');
 });
 
 $('#btn-playlists').addEventListener('click', async () => {

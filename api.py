@@ -617,6 +617,30 @@ class Api:
             return {'error': 'Carpeta inválida.'}
         return normalize_folder(folder, dry_run=False)
 
+    def apply_normalize_selected(self, items):
+        """Aplica SOLO los cambios de género elegidos en la revisión.
+
+        items = [{'path': str, 'new': str}]. Reescribe únicamente el tag de
+        género (con el destino elegido, que puede diferir del sugerido),
+        preservando artista/título/álbum/sello/año. No mueve archivos.
+        Devuelve {'applied': n, 'errors': [{path, error}]}."""
+        applied, errors = 0, []
+        for it in items or []:
+            path = it.get('path') or ''
+            new = (it.get('new') or '').strip()
+            if not path or not new:
+                continue
+            try:
+                f = Path(path)
+                tags = read_id3(f)
+                write_id3_tags(f, tags.get('artist', ''), tags.get('title', ''),
+                               tags.get('album', ''), tags.get('label', ''),
+                               new, tags.get('year', ''))
+                applied += 1
+            except Exception as e:
+                errors.append({'path': path, 'error': str(e)})
+        return {'applied': applied, 'errors': errors}
+
     def _write_history_xlsx(self, path, hist):
         """Escribe el historial como Excel prolijo (encabezados, anchos, fila fija)."""
         from openpyxl import Workbook

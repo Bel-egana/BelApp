@@ -220,6 +220,28 @@ def test_suggest_labels_detecta_parecidos(tmp_path):
     assert api.suggest_labels(str(tmp_path / "nope"), "X") == []
 
 
+def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
+    from core.metadata import read_id3, write_id3_tags
+    api = _api(tmp_path)
+    a = tmp_path / "a.mp3"; a.write_bytes(b"")
+    write_id3_tags(a, "Ar", "Ti", "", "La", "Melodic House & Techno", "2023")
+    b = tmp_path / "b.mp3"; b.write_bytes(b"")
+    write_id3_tags(b, "Ar", "Ti", "", "La", "Techno", "2023")
+
+    # Aplico solo 'a', con destino explícito; 'b' no lo paso -> queda intacto.
+    res = api.apply_normalize_selected(
+        [{"path": str(a), "new": "Ethereal / Melodic Techno"}])
+    assert res["applied"] == 1
+    assert res["errors"] == []
+    assert read_id3(a).get("genre") == "Ethereal / Melodic Techno"
+    assert read_id3(b).get("genre") == "Techno"          # sin tocar
+
+    # Ítems sin path o sin destino se ignoran (no rompe).
+    res2 = api.apply_normalize_selected(
+        [{"path": "", "new": "Techno"}, {"path": str(b), "new": ""}])
+    assert res2["applied"] == 0
+
+
 def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
     from core.metadata import write_id3_tags
     api = _api(tmp_path)
