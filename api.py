@@ -21,6 +21,7 @@ from core.genres import (BEL_GENRES, BEL_GENRES_SPECIFIC, SPECIFIC_TO_BROAD,
 from core.history import (build_name_index, find_duplicate, load_history,
                           save_history)
 from core.labels import sellos_parecidos
+from core.playlists import build_m3u8, group_by_genre_year, playlist_filename
 from core.metadata import is_audio, read_id3, write_id3_tags
 from core.normalizer import normalize_folder
 from core.organizer import build_path
@@ -167,6 +168,40 @@ class Api:
         self._lbl_cache_base = base
         self._lbl_cache = sorted(labels)
         return self._lbl_cache
+
+    def generate_playlists(self, base, out_dir):
+        """Genera un .m3u8 por (Género tag + Año) leyendo los tags de la
+        biblioteca. Las playlists son por REFERENCIA: no mueve ni copia audio.
+        Devuelve un resumen o {'error': ...}."""
+        try:
+            base_p, out_p = Path(base), Path(out_dir)
+            if not base_p.is_dir():
+                return {'error': f'No existe la carpeta base: {base}'}
+            out_p.mkdir(parents=True, exist_ok=True)
+            tracks, sin_tag, total = [], 0, 0
+            for f in base_p.rglob('*'):
+                if not (f.is_file() and is_audio(f.name)):
+                    continue
+                total += 1
+                id3 = read_id3(f)
+                genre = (id3.get('genre') or '').strip()
+                year = (id3.get('year') or '').strip()
+                if not genre or not year:
+                    sin_tag += 1
+                    continue
+                tracks.append({'path': str(f), 'genre': genre, 'year': year,
+                               'artist': id3.get('artist', ''),
+                               'title': id3.get('title', '')})
+            escritas = 0
+            for (genre, year), items in group_by_genre_year(tracks).items():
+                (out_p / playlist_filename(genre, year)).write_text(
+                    build_m3u8(items), encoding='utf-8')
+                escritas += 1
+            self._last_dir = str(out_p)
+            return {'ok': True, 'playlists': escritas, 'tracks': len(tracks),
+                    'sin_tag': sin_tag, 'total': total, 'folder': str(out_p)}
+        except Exception as e:
+            return {'error': str(e)}
 
     def open_beatport(self, query):
         webbrowser.open('https://www.beatport.com/search?q=' + quote(query))

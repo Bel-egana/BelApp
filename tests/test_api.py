@@ -220,6 +220,38 @@ def test_suggest_labels_detecta_parecidos(tmp_path):
     assert api.suggest_labels(str(tmp_path / "nope"), "X") == []
 
 
+def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    base = tmp_path / "Musica"
+    (base / "g").mkdir(parents=True)
+
+    def mk(name, genre, year):
+        f = base / "g" / name
+        f.write_bytes(b"")
+        write_id3_tags(f, "Art", "Tit", "", "Lab", genre, year)
+        return f
+
+    mk("a.mp3", "Ethereal / Melodic Techno", "2023")
+    mk("b.mp3", "Ethereal / Melodic Techno", "2023")
+    mk("c.mp3", "Deep House", "2022")
+    mk("d.mp3", "", "2021")   # sin género -> se saltea
+
+    out = tmp_path / "Playlists"
+    res = api.generate_playlists(str(base), str(out))
+    assert res.get("ok") is True
+    assert res["playlists"] == 2
+    assert res["tracks"] == 3
+    # la '/' del género se sanea a '_' en el nombre del archivo
+    f1 = out / "Ethereal _ Melodic Techno - 2023.m3u8"
+    assert f1.exists()
+    assert (out / "Deep House - 2022.m3u8").exists()
+    txt = f1.read_text(encoding="utf-8")
+    assert txt.startswith("#EXTM3U")
+    assert str(base / "g" / "a.mp3") in txt
+    assert str(base / "g" / "b.mp3") in txt
+
+
 # ── Vista Resultado: mover + deshacer ─────────────────────────────────────────
 
 def _track_item(path, **kw):

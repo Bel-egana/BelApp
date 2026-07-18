@@ -229,6 +229,25 @@ $('#btn-normalize').addEventListener('click', async () => {
     'En Traktor: re-importá/actualizá y ordená por la columna Genre.');
 });
 
+$('#btn-playlists').addEventListener('click', async () => {
+  const base = $('#base-path').value.trim();
+  if (!base) { await confirmModal('Generar playlists', '✗ Falta la carpeta base de música.'); return; }
+  const seguir = await confirmModal('Generar playlists para Traktor',
+    'Leo los tags de tu biblioteca y armo una playlist .m3u8 por Género + Año.\n\n' +
+    'Después elegís en qué carpeta guardarlas.\n\n' +
+    'Ojo: escanear la biblioteca entera tarda unos minutos. NO mueve ni copia audio (es por referencia).');
+  if (!seguir) return;
+  const out = await api().pick_folder();
+  if (!out) return;
+  flashMsg('⏳ Generando playlists… puede tardar unos minutos');
+  const res = await api().generate_playlists(base, out);
+  if (res.error) { await confirmModal('Generar playlists', '✗ ' + res.error); return; }
+  await confirmModal('Playlists listas ✓',
+    `${res.playlists} playlists creadas (${res.tracks} tracks) en:\n${res.folder}\n\n` +
+    `Se saltearon ${res.sin_tag} tracks sin género/año.\n\n` +
+    'En Traktor: click derecho en "Playlists" → Import Playlist → elegí un .m3u8.');
+});
+
 $('#btn-continue').addEventListener('click', async () => {
   if (!$('#token').value.trim()) {
     flashMsg('✗ Necesitás un token de Discogs — usá el botón "Obtener token"');
@@ -545,11 +564,6 @@ $('#btn-beatport').addEventListener('click', () => {
   if (q) api().open_beatport(q);
 });
 
-$('#btn-use').addEventListener('click', () => {
-  if (selResult >= 0) selectResult(selResult);
-  else setSearchStatus('✗ Seleccioná un resultado primero', 't-flag');
-});
-
 $('#btn-confirm').addEventListener('click', confirmCurrent);
 
 // Al editar cualquiera de los 6 campos: si el ítem ya estaba confirmado, vuelve
@@ -589,13 +603,6 @@ $('#btn-discard').addEventListener('click', () => {
     return;
   }
   loadItem(Math.min(curIdx, state.items.length - 1));
-});
-
-$('#btn-flag').addEventListener('click', () => {
-  if (curIdx < 0) return;
-  const it = state.items[curIdx];
-  it.flag = it.flag ? '' : 'review';
-  renderItemList();
 });
 
 ['#conf-genre', '#conf-label', '#conf-year'].forEach((sel) => {
