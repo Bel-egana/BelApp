@@ -193,6 +193,16 @@ $('#btn-scan').addEventListener('click', async () => {
   loadSummary(res);
 });
 
+// Solo archivos sueltos (ignora subcarpetas) — para cargar los que faltan ordenar.
+$('#btn-scan-loose').addEventListener('click', async () => {
+  const p = await api().pick_folder();
+  if (!p) return;
+  const res = await api().scan_folder(p, itemPaths(), state.items.length, true);
+  if (res.error) { flashMsg('✗ ' + res.error); return; }
+  addItems(res.items);
+  loadSummary(res);
+});
+
 $('#btn-clear').addEventListener('click', async () => {
   if (!state.items.length) return;
   if (await confirmModal('Limpiar', '¿Borrar la lista de ítems cargados?')) {

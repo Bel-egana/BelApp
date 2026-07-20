@@ -85,7 +85,11 @@ class Api:
         return base if Path(base).is_dir() else ''
 
     def pick_folder(self):
-        result = self._dialog('folder', directory=self._start_dir())
+        # Los diálogos de CARPETA arrancan siempre en la base (Música), no en la
+        # última usada: así navegás cómodo entre sellos sin quedar clavada adentro.
+        base = load_config(self._config_path).get('base_path', DEFAULT_BASE)
+        start = base if Path(base).is_dir() else self._start_dir()
+        result = self._dialog('folder', directory=start)
         if result:
             self._last_dir = result[0]
             return result[0]
@@ -286,7 +290,9 @@ class Api:
             return {'error': f'No hay archivos de audio en "{Path(path).name}".'}
         return {'item': item}
 
-    def scan_folder(self, path, existing_paths, current_count):
+    def scan_folder(self, path, existing_paths, current_count, loose_only=False):
+        """Carga los archivos sueltos de la carpeta (como tracks) y, salvo que
+        loose_only sea True, las subcarpetas inmediatas (como álbumes)."""
         fp = Path(path)
         if not fp.is_dir():
             return {'error': 'Carpeta inválida.'}
@@ -309,7 +315,7 @@ class Api:
             items.append(self._track_item(str(f), idx))
             existing.add(str(f))
 
-        if not capped:
+        if not capped and not loose_only:
             for sub in sorted(fp.iterdir()):
                 if not sub.is_dir():
                     continue
