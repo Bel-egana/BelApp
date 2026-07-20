@@ -41,6 +41,32 @@ function confirmModal(title, message) {
   });
 }
 
+/* Modal de dos opciones (reusa el overlay; devuelve 'a' o 'b'). */
+function chooseModal(title, message, labelA, labelB) {
+  return new Promise((resolve) => {
+    const ov = $('#modal-overlay');
+    const okBtn = $('#modal-ok');
+    const cancelBtn = $('#modal-cancel');
+    $('#modal-title').textContent = title;
+    $('#modal-msg').textContent = message;
+    okBtn.textContent = labelA;
+    cancelBtn.textContent = labelB;
+    ov.classList.add('show');
+    function cleanup(val) {
+      ov.classList.remove('show');
+      okBtn.textContent = 'Aceptar';           // restaurar labels por defecto
+      cancelBtn.textContent = 'Cancelar';
+      okBtn.removeEventListener('click', onA);
+      cancelBtn.removeEventListener('click', onB);
+      resolve(val);
+    }
+    function onA() { cleanup('a'); }
+    function onB() { cleanup('b'); }
+    okBtn.addEventListener('click', onA);
+    cancelBtn.addEventListener('click', onB);
+  });
+}
+
 /* ── Navegación entre vistas ─────────────────────────────── */
 const VIEWS = ['cargar', 'buscar', 'resultado', 'historial'];
 
@@ -169,11 +195,22 @@ $('#btn-eye').addEventListener('click', () => {
 $('#btn-get-token').addEventListener('click', () => api().open_token_page());
 
 $('#btn-add-tracks').addEventListener('click', async () => {
-  const paths = await api().pick_tracks();
-  if (!paths.length) return;
-  const res = await api().load_tracks(paths, itemPaths(), state.items.length);
-  addItems(res.items);
-  loadSummary(res);
+  const modo = await chooseModal('Cargar tracks sueltos',
+    '¿Cómo querés cargarlos?', 'Elegir archivos', 'Toda una carpeta');
+  if (modo === 'a') {
+    const paths = await api().pick_tracks();
+    if (!paths.length) return;
+    const res = await api().load_tracks(paths, itemPaths(), state.items.length);
+    addItems(res.items);
+    loadSummary(res);
+  } else {
+    const p = await api().pick_folder();
+    if (!p) return;
+    const res = await api().scan_folder(p, itemPaths(), state.items.length, true);
+    if (res.error) { flashMsg('✗ ' + res.error); return; }
+    addItems(res.items);
+    loadSummary(res);
+  }
 });
 
 $('#btn-add-album').addEventListener('click', async () => {
@@ -188,16 +225,6 @@ $('#btn-scan').addEventListener('click', async () => {
   const p = await api().pick_folder();
   if (!p) return;
   const res = await api().scan_folder(p, itemPaths(), state.items.length);
-  if (res.error) { flashMsg('✗ ' + res.error); return; }
-  addItems(res.items);
-  loadSummary(res);
-});
-
-// Solo archivos sueltos (ignora subcarpetas) — para cargar los que faltan ordenar.
-$('#btn-scan-loose').addEventListener('click', async () => {
-  const p = await api().pick_folder();
-  if (!p) return;
-  const res = await api().scan_folder(p, itemPaths(), state.items.length, true);
   if (res.error) { flashMsg('✗ ' + res.error); return; }
   addItems(res.items);
   loadSummary(res);
