@@ -299,7 +299,7 @@ class Api:
             return {'error': 'Carpeta inválida.'}
         idx = self._dup_index()
         existing = set(existing_paths)
-        items, skipped, capped = [], 0, False
+        items, skipped, capped, skipped_years = [], 0, False, 0
 
         def full():
             return current_count + len(items) >= MAX_ITEMS
@@ -321,7 +321,8 @@ class Api:
                 if not sub.is_dir():
                     continue
                 if skip_year and sub.name.isdigit() and len(sub.name) == 4:
-                    continue                     # carpeta de año ya organizada
+                    skipped_years += 1           # carpeta de año ya organizada
+                    continue
                 if full():
                     capped = True
                     break
@@ -333,7 +334,8 @@ class Api:
                     items.append(item)
                     existing.add(str(sub))
 
-        return {'items': items, 'skipped': skipped, 'capped': capped}
+        return {'items': items, 'skipped': skipped, 'capped': capped,
+                'skipped_years': skipped_years}
 
     # ── Vista Resultado: mover / deshacer / período ───────────────────────────
     def _txt_path(self, base_path, period):

@@ -235,6 +235,7 @@ def test_scan_folder_skip_year_saltea_carpetas_de_anio(tmp_path):
     tipos = sorted(it["type"] for it in r["items"])
     assert tipos.count("track") == 2
     assert tipos.count("album") == 1
+    assert r["skipped_years"] == 1          # salteó la carpeta "2023"
 
     # normal (skip_year=False) -> lo mismo + "2023" también como álbum
     r2 = api.scan_folder(str(base), [], 0)

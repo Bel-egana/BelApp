@@ -191,6 +191,18 @@ $('#btn-scan').addEventListener('click', async () => {
   // carpetas con nombre de año (ya organizadas).
   const res = await api().scan_folder(p, itemPaths(), state.items.length, true);
   if (res.error) { flashMsg('✗ ' + res.error); return; }
+  if (!res.items.length) {
+    let msg;
+    if (res.skipped_years) {
+      msg = `Esa carpeta ya está ordenada: solo tiene ${res.skipped_years} carpeta(s) de año y nada suelto para cargar.`;
+    } else if (res.skipped) {
+      msg = 'Todo lo de esa carpeta ya estaba cargado en la lista.';
+    } else {
+      msg = 'No hay nada para cargar en esa carpeta (sin tracks sueltos ni álbumes).';
+    }
+    await confirmModal('Escanear carpeta', msg);
+    return;
+  }
   addItems(res.items);
   loadSummary(res);
 });
