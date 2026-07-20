@@ -220,24 +220,25 @@ def test_suggest_labels_detecta_parecidos(tmp_path):
     assert api.suggest_labels(str(tmp_path / "nope"), "X") == []
 
 
-def test_scan_folder_loose_only_ignora_subcarpetas(tmp_path):
+def test_scan_folder_skip_year_saltea_carpetas_de_anio(tmp_path):
     api = _api(tmp_path)
     base = tmp_path / "sello"; base.mkdir()
-    (base / "A - Uno.mp3").write_bytes(b"")
-    (base / "B - Dos.mp3").write_bytes(b"")
-    sub = base / "2023"; sub.mkdir()
-    (sub / "C - EnAlbum.mp3").write_bytes(b"")
+    (base / "A - Uno.mp3").write_bytes(b"")            # suelto
+    (base / "B - Dos.mp3").write_bytes(b"")            # suelto
+    ep = base / "Artista - EP"; ep.mkdir()             # álbum sin ordenar
+    (ep / "C - EnEP.mp3").write_bytes(b"")
+    yr = base / "2023"; yr.mkdir()                     # año ya organizado
+    (yr / "D - EnAnio.mp3").write_bytes(b"")
 
-    # loose_only=True -> solo los 2 sueltos, ignora la subcarpeta "2023"
-    r = api.scan_folder(str(base), [], 0, loose_only=True)
-    assert len(r["items"]) == 2
-    assert all(it["type"] == "track" for it in r["items"])
-
-    # normal -> 2 tracks sueltos + 1 álbum (la subcarpeta)
-    r2 = api.scan_folder(str(base), [], 0)
-    tipos = sorted(it["type"] for it in r2["items"])
+    # skip_year=True -> 2 sueltos + el EP (álbum), pero NO la carpeta "2023"
+    r = api.scan_folder(str(base), [], 0, skip_year=True)
+    tipos = sorted(it["type"] for it in r["items"])
     assert tipos.count("track") == 2
-    assert "album" in tipos
+    assert tipos.count("album") == 1
+
+    # normal (skip_year=False) -> lo mismo + "2023" también como álbum
+    r2 = api.scan_folder(str(base), [], 0)
+    assert sorted(it["type"] for it in r2["items"]).count("album") == 2
 
 
 def test_review_folder_genres_lista_todos(tmp_path):

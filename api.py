@@ -290,9 +290,10 @@ class Api:
             return {'error': f'No hay archivos de audio en "{Path(path).name}".'}
         return {'item': item}
 
-    def scan_folder(self, path, existing_paths, current_count, loose_only=False):
-        """Carga los archivos sueltos de la carpeta (como tracks) y, salvo que
-        loose_only sea True, las subcarpetas inmediatas (como álbumes)."""
+    def scan_folder(self, path, existing_paths, current_count, skip_year=False):
+        """Carga los archivos sueltos (como tracks) y las subcarpetas inmediatas
+        (como álbumes). Si skip_year=True, saltea las subcarpetas con nombre de
+        año (ej. '2022'): son las que ya están organizadas."""
         fp = Path(path)
         if not fp.is_dir():
             return {'error': 'Carpeta inválida.'}
@@ -315,10 +316,12 @@ class Api:
             items.append(self._track_item(str(f), idx))
             existing.add(str(f))
 
-        if not capped and not loose_only:
+        if not capped:
             for sub in sorted(fp.iterdir()):
                 if not sub.is_dir():
                     continue
+                if skip_year and sub.name.isdigit() and len(sub.name) == 4:
+                    continue                     # carpeta de año ya organizada
                 if full():
                     capped = True
                     break

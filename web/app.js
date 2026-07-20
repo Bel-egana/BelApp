@@ -196,7 +196,10 @@ $('#btn-get-token').addEventListener('click', () => api().open_token_page());
 
 $('#btn-add-tracks').addEventListener('click', async () => {
   const modo = await chooseModal('Cargar tracks sueltos',
-    '¿Cómo querés cargarlos?', 'Elegir archivos', 'Toda una carpeta');
+    'Elegir archivos: los seleccionás a mano.\n' +
+    'Toda una carpeta: carga los sueltos y las subcarpetas de álbum sin ordenar ' +
+    '(saltea las carpetas de año ya organizadas).',
+    'Elegir archivos', 'Toda una carpeta');
   if (modo === 'a') {
     const paths = await api().pick_tracks();
     if (!paths.length) return;
