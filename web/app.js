@@ -587,20 +587,26 @@ async function checkLabelSuggestion() {
     hint.style.display = 'none'; hint.textContent = '';
     updateConfirmEnabled(); return;
   }
-  const sug = matches[0];
+  const sugs = matches.slice(0, 3);          // hasta 3 candidatos, clickeables
   labelWarningActive = true;   // hay que decidir antes de poder confirmar
   hint.style.color = '#fc0b91';
-  hint.textContent = '⚠ Ya existe una carpeta parecida: "' + sug + '"  ';
+  hint.textContent = sugs.length > 1
+    ? '⚠ Ya existen carpetas parecidas: '
+    : '⚠ Ya existe una carpeta parecida: ';
 
-  const bUsar = document.createElement('button');
-  bUsar.type = 'button';
-  bUsar.textContent = 'Usar esa';
-  bUsar.style.cssText = HINT_BTN + 'border:1px solid #fc0b91; color:#fc0b91;';
-  bUsar.addEventListener('click', () => {
-    $('#conf-label').value = sug;
-    labelWarningActive = false;
-    hint.style.display = 'none'; hint.textContent = '';
-    updatePreview();
+  sugs.forEach((sug) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = sug;
+    b.title = 'Usar "' + sug + '"';
+    b.style.cssText = HINT_BTN + 'border:1px solid #fc0b91; color:#fc0b91;';
+    b.addEventListener('click', () => {
+      $('#conf-label').value = sug;
+      labelWarningActive = false;
+      hint.style.display = 'none'; hint.textContent = '';
+      updatePreview();
+    });
+    hint.appendChild(b);
   });
 
   const bNueva = document.createElement('button');
@@ -614,7 +620,6 @@ async function checkLabelSuggestion() {
     updateConfirmEnabled();
   });
 
-  hint.appendChild(bUsar);
   hint.appendChild(bNueva);
   hint.style.display = '';
   updateConfirmEnabled();

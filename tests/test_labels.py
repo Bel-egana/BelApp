@@ -44,6 +44,25 @@ def test_typo_transposicion():
         "Stir Vol Talent", ["Stil Vor Talent"])
 
 
+# ── Regla de prefijo: avisa temprano, mientras escribís ─────────────────────
+
+def test_prefijo_avisa_temprano():
+    # Con solo "Dens" ya sugiere el sello existente (tipo autocompletado).
+    assert "Dense Audio" in sellos_parecidos("Dens", ["Dense Audio"])
+    assert "Dense Audio" in sellos_parecidos("Dense", ["Dense Audio"])
+
+
+def test_prefijo_muy_corto_no_avisa():
+    # Menos de 4 caracteres -> no molesta (evita ruido con medio catálogo).
+    assert sellos_parecidos("De", ["Dense Audio"]) == []
+    assert sellos_parecidos("Den", ["Dense Audio"]) == []
+
+
+def test_exacto_existente_no_avisa_aunque_haya_parecidos():
+    # "Steyoyoke" existe tal cual -> estás reusando: no avisar por "Steyoyoke Black".
+    assert sellos_parecidos("Steyoyoke", ["Steyoyoke", "Steyoyoke Black"]) == []
+
+
 # ── No falsos positivos ──────────────────────────────────────────────────────
 
 def test_sellos_realmente_distintos_no_avisan():

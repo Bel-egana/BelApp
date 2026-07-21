@@ -12,6 +12,9 @@ import re
 # Sufijos genéricos de sello que ignoramos al comparar el "núcleo" del nombre.
 _SUFIJOS = ('recordings', 'records', 'music', 'recs', 'rec', 'ltd')
 
+# Mínimo de caracteres tipeados para empezar a sugerir por prefijo (evita ruido).
+_MIN_PREFIJO = 4
+
 
 def _norm(s):
     """Minúsculas y solo alfanumérico (ignora espacios, guiones, puntos, may.)."""
@@ -57,7 +60,11 @@ def _es_parecido(cand, exist):
     cc = _core(cand)
     if cc and cc == _core(exist):
         return True
-    # Regla 3: 1-2 letras de diferencia (typo/transposición), con guarda de largo.
+    # Regla 3: lo tipeado es el COMIENZO de un sello existente -> avisa temprano,
+    # mientras escribís (tipo autocompletado). Desde _MIN_PREFIJO caracteres.
+    if len(nc) >= _MIN_PREFIJO and ne.startswith(nc):
+        return True
+    # Regla 4: 1-2 letras de diferencia (typo/transposición), con guarda de largo.
     if min(len(nc), len(ne)) >= 5 and _distancia(nc, ne) <= 2:
         return True
     return False
@@ -69,6 +76,10 @@ def sellos_parecidos(candidato, existentes):
     Ordenados por cercanía (más parecido primero). [] si el candidato está
     vacío o no hay parecidos."""
     if not candidato or not str(candidato).strip():
+        return []
+    cand_low = str(candidato).strip().lower()
+    # Si coincide EXACTO con una carpeta existente, la estás reusando: no avisar.
+    if any(str(e).strip().lower() == cand_low for e in existentes):
         return []
     nc = _norm(candidato)
     matches = [e for e in existentes if _es_parecido(candidato, e)]
