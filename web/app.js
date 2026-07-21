@@ -859,20 +859,33 @@ function populateGenreFilter() {
   sel.value = cur;   // preservar la selección si todavía existe
 }
 
-function renderHistory() {
+const HIST_PAGE_SIZE = 50;
+let histPage = 1;
+
+/* Filas que pasan el buscador y el filtro de género (más nuevas primero). */
+function historyFiltered() {
   const flt = $('#hist-search').value.trim().toLowerCase();
   const gen = $('#hist-genre').value;
+  return history.slice().reverse().filter((h) => {
+    if (gen && (h.genero || '') !== gen) return false;
+    if (!flt) return true;
+    const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
+      .join(' ').toLowerCase();
+    return blob.includes(flt);
+  });
+}
+
+function renderHistory() {
+  const rows = historyFiltered();
+  const total = history.length;
+  const shown = rows.length;
+  const pages = Math.max(1, Math.ceil(shown / HIST_PAGE_SIZE));
+  histPage = Math.min(Math.max(1, histPage), pages);   // clamp
+  const desde = (histPage - 1) * HIST_PAGE_SIZE;
+
   const tbody = $('#tbl-hist tbody');
   tbody.innerHTML = '';
-  let shown = 0;
-
-  history.slice().reverse().forEach((h) => {
-    if (gen && (h.genero || '') !== gen) return;
-    if (flt) {
-      const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
-        .join(' ').toLowerCase();
-      if (!blob.includes(flt)) return;
-    }
+  rows.slice(desde, desde + HIST_PAGE_SIZE).forEach((h) => {
     const tr = document.createElement('tr');
     [h.fecha, h.artista, h.track, h.genero, h.sello, h['año'], h.destino]
       .forEach((v) => {
@@ -884,18 +897,34 @@ function renderHistory() {
     tr.addEventListener('dblclick', () => api().open_in_explorer(h.destino));
     tr.addEventListener('contextmenu', (e) => showCtxMenu(e, h.destino));
     tbody.appendChild(tr);
-    shown++;
   });
 
   $('#hist-empty').style.display = history.length ? 'none' : 'block';
-  const total = history.length;
+  const flt = $('#hist-search').value.trim();
+  const gen = $('#hist-genre').value;
   $('#hist-count').textContent = total === 0 ? 'Sin registros aún'
     : ((flt || gen) ? `${shown} de ${total} registros`
                     : `${total} registro${total !== 1 ? 's' : ''}`);
+
+  $('#hist-pager').style.display = pages > 1 ? '' : 'none';
+  $('#hist-page-info').textContent = `Página ${histPage} de ${pages}`;
+  $('#hist-prev').disabled = histPage <= 1;
+  $('#hist-next').disabled = histPage >= pages;
 }
 
-$('#hist-search').addEventListener('input', renderHistory);
-$('#hist-genre').addEventListener('change', renderHistory);
+function histGoTo(p) {
+  histPage = p;
+  renderHistory();
+  const card = $('#tbl-hist').closest('.table-card');
+  if (card) card.scrollTop = 0;      // cada página arranca arriba
+}
+
+$('#hist-prev').addEventListener('click', () => histGoTo(histPage - 1));
+$('#hist-next').addEventListener('click', () => histGoTo(histPage + 1));
+
+// Al filtrar/buscar, volver a la página 1.
+$('#hist-search').addEventListener('input', () => { histPage = 1; renderHistory(); });
+$('#hist-genre').addEventListener('change', () => { histPage = 1; renderHistory(); });
 
 function showCtxMenu(e, destino) {
   e.preventDefault();

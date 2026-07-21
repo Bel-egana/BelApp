@@ -190,6 +190,10 @@ tbody tr:hover { background: var(--surface2); }
 .bottom-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
 .bottom-bar .btn-accent { margin-left: auto; }
 
+/* Paginador del historial */
+.hist-pager { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.hist-pager .btn { padding: 4px 12px; font-size: 12px; }
+
 /* ── Vista Buscar & Confirmar ────────────────────────────── */
 .buscar-layout { display: flex; gap: 14px; flex: 1; min-height: 0; }
 
