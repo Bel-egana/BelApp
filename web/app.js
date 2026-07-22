@@ -665,7 +665,6 @@ async function confirmCurrent() {
   }
 }
 
-$('#btn-search').addEventListener('click', doSearch);
 $('#search-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 
 $('#btn-beatport').addEventListener('click', () => {
@@ -750,7 +749,7 @@ async function moveConfirmed() {
     label: i.conf.label, year: i.conf.year,
   }));
   const res = await api().move_items(
-    payload, $('#base-path').value.trim(), $('#period').value.trim());
+    payload, $('#base-path').value.trim());
 
   renderMoveResult(res);
 
@@ -779,7 +778,6 @@ function renderMoveResult(res) {
   $('#btn-undo').disabled = !movedAny;
   lastOpenDir = res.open_dir || '';
   $('#btn-open-folder').disabled = !movedAny || !lastOpenDir;
-  updatePeriodCount(res.txt_count);
 }
 
 let lastOpenDir = '';
@@ -805,7 +803,6 @@ $('#btn-undo').addEventListener('click', async () => {
   }
   appendLog('\n' + msg, 'warn');
   $('#btn-undo').disabled = true;
-  await refreshPeriodCount();
 });
 
 $('#btn-new').addEventListener('click', async () => {
@@ -818,27 +815,6 @@ $('#btn-new').addEventListener('click', async () => {
   $('#btn-undo').disabled = true;
   showView('cargar');
 });
-
-/* ── Período ─────────────────────────────────────────────── */
-function defaultPeriod() {
-  const d = new Date();
-  return d.getFullYear() + '_' + (d.getMonth() < 6 ? '06' : '12');
-}
-
-function updatePeriodCount(n) {
-  const name = $('#period').value.trim();
-  $('#period-count').textContent = n
-    ? `Período ${name}: ${n} track${n > 1 ? 's' : ''} acumulado${n > 1 ? 's' : ''}`
-    : `Período ${name}: sin tracks aún`;
-}
-
-async function refreshPeriodCount() {
-  const n = await api().get_period_count(
-    $('#base-path').value.trim(), $('#period').value.trim());
-  updatePeriodCount(n);
-}
-
-$('#period').addEventListener('change', refreshPeriodCount);
 
 /* ── Vista Historial ─────────────────────────────────────── */
 let history = [];
@@ -1023,8 +999,6 @@ window.addEventListener('pywebviewready', async () => {
     SPEC2BROAD = await api().get_specific_to_broad();
     setGenre('');
     setGenreSpecific('');
-    $('#period').value = defaultPeriod();
-    await refreshPeriodCount();
     $('#status').textContent =
       'Conectado · Carpeta base: ' + cfg.base_path +
       (cfg.discogs_token ? ' · Token ✓' : ' · Sin token');

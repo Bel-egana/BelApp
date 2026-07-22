@@ -378,14 +378,14 @@ class Api:
         except Exception:
             return 0
 
-    def move_items(self, items, base_path, period):
+    def move_items(self, items, base_path, period=''):
         now = datetime.now().strftime('%d/%m/%Y %H:%M')
         folders, log, new_hist, txt_paths = set(), [], [], []
         moved_sources, src_parents = [], set()
         last_dir = str(base_path)
         moved_t = moved_a = errors = 0
         self._last_move = []
-        self._last_txt = str(self._txt_path(base_path, period))
+        self._last_txt = str(self._txt_path(base_path, period)) if period else None
         self._last_base = str(base_path)
         self._lbl_cache = None   # se crearán carpetas: invalidar cache de sellos
 
@@ -480,7 +480,7 @@ class Api:
         if new_hist:
             save_history(self._history_path,
                          load_history(self._history_path) + new_hist)
-        txt_count = self._append_txt(base_path, period, txt_paths)
+        txt_count = self._append_txt(base_path, period, txt_paths) if period else 0
         L(f"✓ Listo! {moved_t} tracks, {moved_a} albums, "
           f"{len(folders)} carpetas nuevas, {errors} errores.", 'warn')
         return {'log': log, 'moved': moved_t, 'moved_albums': moved_a,

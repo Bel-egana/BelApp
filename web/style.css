@@ -282,8 +282,6 @@ tbody tr:hover { background: var(--surface2); }
 .log-album { color: var(--purple); }
 .log-warn { color: var(--warning); }
 
-.period-box { display: flex; align-items: center; gap: 8px; margin-left: 16px; }
-#period { width: 90px; color: var(--accent); }
 
 /* ── Vista Historial ─────────────────────────────────────── */
 .hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
