@@ -85,10 +85,17 @@ class Api:
         return base if Path(base).is_dir() else ''
 
     def pick_folder(self):
-        # Los diálogos de CARPETA arrancan siempre en la base (Música), no en la
-        # última usada: así navegás cómodo entre sellos sin quedar clavada adentro.
+        # Arranca en la carpeta PADRE de la última usada (ej. el género, que
+        # muestra la lista de sellos), para ir de un sello al siguiente sin
+        # re-navegar. Si no hay última válida, arranca en la base (Música).
         base = load_config(self._config_path).get('base_path', DEFAULT_BASE)
-        start = base if Path(base).is_dir() else self._start_dir()
+        start = base
+        if self._last_dir:
+            parent = Path(self._last_dir).parent
+            if parent.is_dir():
+                start = str(parent)
+        if not Path(start).is_dir():
+            start = base
         result = self._dialog('folder', directory=start)
         if result:
             self._last_dir = result[0]
