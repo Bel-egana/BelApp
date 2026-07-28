@@ -34,11 +34,12 @@ Incluye un **normalizador** que limpia los géneros sucios de la biblioteca de T
 `BEL_GENRES` = Deep & Progressive House · Melodic Techno & Techno · Psychedelic Trance · Trance.
 `GENRE_MAP` (dict, `genres.py`) y `format_genre(raw)`: substring case-insensitive, **gana la 1ª clave** que aparece (las específicas van primero). Mapea estilos de Discogs → una de las 4. '' si no matchea.
 
-**2) Para el NORMALIZADOR (limpia tags de la biblioteca Traktor) → 12 categorías.**
-`BEL_GENRES_SPECIFIC` = Melodic Techno, Techno, Acid Techno, Deep House, Melodic House,
-Progressive House, Tech House, Afro / Organic House, Indie Dance, Trance, Psytrance, Progressive Psy.
+**2) Para el NORMALIZADOR (limpia tags de la biblioteca Traktor) → 13 categorías.**
+`BEL_GENRES_SPECIFIC` = Ethereal / Melodic Techno, Techno, Minimal Techno, Acid Techno,
+Deep House, Melodic House, Progressive House, Tech House, House, Indie Dance, Trance, Psytrance, Progressive Psy.
+En el código la lista va agrupada por familia; el desplegable de la UI la muestra **alfabética** (orden en JS).
 `SPECIFIC_RULES` (lista ORDENADA) + `map_genre_specific(raw)`: misma idea (substring, 1ª que matchea).
-Decisiones: "Melodic House & Techno" (Beatport) → **Melodic Techno**; prog+uplifting trance unificados → **Trance**. Lo que no matchea → '' (se deja sin tocar).
+Decisiones: "Melodic House & Techno" (Beatport) → **Ethereal / Melodic Techno**; "minimal techno" → **Minimal Techno** (categoría propia, ya no cae en Techno); afro/organic house → **House**; prog+uplifting trance unificados → **Trance**. "Minimal / Deep Tech" **no tiene regla** (queda sin auto-clasificar; Belén lo asigna a mano como Tech House). Lo que no matchea → '' (se deja sin tocar).
 
 ## Convención de carpetas (en disco)
 `build_path` → `BASE / Género / Sello / Año / archivo`. Si falta un dato usa placeholder:
