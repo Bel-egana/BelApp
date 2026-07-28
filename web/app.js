@@ -995,7 +995,8 @@ window.addEventListener('pywebviewready', async () => {
     $('#base-path').value = cfg.base_path;
     $('#token').value = cfg.discogs_token;
     GENRES = await api().get_genres();
-    GENRES_SPEC = await api().get_genres_specific();
+    GENRES_SPEC = (await api().get_genres_specific())
+      .sort((a, b) => a.localeCompare(b, 'es'));   // alfabético en los desplegables
     SPEC2BROAD = await api().get_specific_to_broad();
     setGenre('');
     setGenreSpecific('');
