@@ -59,9 +59,9 @@ def format_genre(raw):
 # la biblioteca hacia esta lista curada.
 # ─────────────────────────────────────────────────────────────────────────────
 BEL_GENRES_SPECIFIC = [
-    'Ethereal / Melodic Techno', 'Techno', 'Acid Techno', 'Deep House', 'Melodic House',
-    'Progressive House', 'Tech House', 'Afro / Organic House', 'Indie Dance',
-    'Trance', 'Psytrance', 'Progressive Psy',
+    'Ethereal / Melodic Techno', 'Techno', 'Minimal Techno', 'Acid Techno',
+    'Deep House', 'Melodic House', 'Progressive House', 'Tech House', 'House',
+    'Indie Dance', 'Trance', 'Psytrance', 'Progressive Psy',
 ]
 
 # Reglas ORDENADAS (substring en minúsculas -> categoría). Gana la PRIMERA que
@@ -74,8 +74,8 @@ SPECIFIC_RULES = [
     ('progressive psy',         'Progressive Psy'),
     ('iboga',                   'Progressive Psy'),
     ('tech house',              'Tech House'),
-    ('afro house',              'Afro / Organic House'),
-    ('organic house',           'Afro / Organic House'),
+    ('afro house',              'House'),
+    ('organic house',           'House'),
     ('deep house',              'Deep House'),
     ('melodic house',           'Melodic House'),
     ('progressive house',       'Progressive House'),
@@ -87,7 +87,8 @@ SPECIFIC_RULES = [
     ('progressive trance',      'Trance'),
     ('progressivetrance',       'Trance'),
     ('uplifting',               'Trance'),
-    ('techno',                  'Techno'),             # peak time / driving / raw / hypnotic / minimal techno
+    ('minimal techno',          'Minimal Techno'),
+    ('techno',                  'Techno'),             # peak time / driving / raw / hypnotic
     ('trance',                  'Trance'),             # genérico, dance/trance, tech trance, main floor
 ]
 
@@ -112,12 +113,13 @@ def map_genre_specific(raw):
 SPECIFIC_TO_BROAD = {
     'Ethereal / Melodic Techno': 'Melodic Techno & Techno',
     'Techno':               'Melodic Techno & Techno',
+    'Minimal Techno':       'Melodic Techno & Techno',
     'Acid Techno':          'Melodic Techno & Techno',
     'Deep House':           'Deep & Progressive House',
     'Melodic House':        'Deep & Progressive House',
     'Progressive House':    'Deep & Progressive House',
     'Tech House':           'Deep & Progressive House',
-    'Afro / Organic House': 'Deep & Progressive House',
+    'House':                'Deep & Progressive House',
     'Indie Dance':          'Deep & Progressive House',
     'Trance':               'Trance',
     'Psytrance':            'Psychedelic Trance',

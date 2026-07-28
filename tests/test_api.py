@@ -179,8 +179,9 @@ def test_get_genres_devuelve_las_categorias(tmp_path):
 def test_get_genres_specific_devuelve_los_12(tmp_path):
     api = _api(tmp_path)
     g = api.get_genres_specific()
-    assert len(g) == 12
+    assert len(g) == 13
     assert "Techno" in g and "Psytrance" in g and "Deep House" in g
+    assert "Minimal Techno" in g and "House" in g
 
 
 def test_get_specific_to_broad_mapea_12_a_4(tmp_path):
@@ -189,7 +190,9 @@ def test_get_specific_to_broad_mapea_12_a_4(tmp_path):
     assert m["Techno"] == "Melodic Techno & Techno"
     assert m["Deep House"] == "Deep & Progressive House"
     assert m["Psytrance"] == "Psychedelic Trance"
-    assert len(m) == 12
+    assert m["Minimal Techno"] == "Melodic Techno & Techno"
+    assert m["House"] == "Deep & Progressive House"
+    assert len(m) == 13
 
 
 def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):

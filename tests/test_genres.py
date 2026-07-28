@@ -27,7 +27,13 @@ def test_specific_melodic_house_y_techno_va_a_ethereal_melodic_techno():
 def test_specific_techno_variantes():
     assert map_genre_specific("Techno") == "Techno"
     assert map_genre_specific("Techno (Peak Time / Driving)") == "Techno"
-    assert map_genre_specific("Minimal Techno") == "Techno"
+    # Minimal Techno tiene su propia categoría (antes caía en Techno).
+    assert map_genre_specific("Minimal Techno") == "Minimal Techno"
+
+
+def test_specific_afro_organic_van_a_house():
+    assert map_genre_specific("Afro House") == "House"
+    assert map_genre_specific("Organic House") == "House"
 
 
 def test_specific_psy_variantes():
@@ -112,6 +118,7 @@ def test_toda_categoria_del_map_es_valida():
 def test_broad_from_specific_techno_y_familia():
     from core.genres import broad_from_specific
     assert broad_from_specific("Techno") == "Melodic Techno & Techno"
+    assert broad_from_specific("Minimal Techno") == "Melodic Techno & Techno"
     assert broad_from_specific("Ethereal / Melodic Techno") == "Melodic Techno & Techno"
     assert broad_from_specific("Acid Techno") == "Melodic Techno & Techno"
 
@@ -122,7 +129,7 @@ def test_broad_from_specific_houses():
     assert broad_from_specific("Melodic House") == "Deep & Progressive House"
     assert broad_from_specific("Progressive House") == "Deep & Progressive House"
     assert broad_from_specific("Tech House") == "Deep & Progressive House"
-    assert broad_from_specific("Afro / Organic House") == "Deep & Progressive House"
+    assert broad_from_specific("House") == "Deep & Progressive House"
     assert broad_from_specific("Indie Dance") == "Deep & Progressive House"
 
 
