@@ -200,10 +200,10 @@ def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):
     api = _api(tmp_path)
     f = tmp_path / "A - T.mp3"
     f.write_bytes(b"")
-    # Beatport etiqueta así; debe detectarse como "Ethereal / Melodic / Techno" (de los 12)
+    # Beatport etiqueta así; debe detectarse como "Ethereal / Melodic Techno" (de los 12)
     write_id3_tags(f, "A", "T", "", "Lab", "Melodic House & Techno", "2020")
     out = api.load_tracks([str(f)], [], 0)
-    assert out["items"][0]["genre_specific"] == "Ethereal / Melodic / Techno"
+    assert out["items"][0]["genre_specific"] == "Ethereal / Melodic Techno"
 
 
 def test_suggest_labels_detecta_parecidos(tmp_path):
@@ -256,7 +256,7 @@ def test_review_folder_genres_lista_todos(tmp_path):
             write_id3_tags(f, "Ar", "Ti", "", "La", g, "2023")
         return f
 
-    mk("a.mp3", "Melodic House & Techno")   # mapea -> Ethereal / Melodic / Techno
+    mk("a.mp3", "Melodic House & Techno")   # mapea -> Ethereal / Melodic Techno
     mk("b.mp3", "Blues")                     # no mapea -> suggested ''
     mk("c.mp3", None)                        # sin género
 
@@ -264,7 +264,7 @@ def test_review_folder_genres_lista_todos(tmp_path):
     assert r["total"] == 3
     assert r["sin_genero"] == 1
     byname = {os.path.basename(t["path"]): t for t in r["tracks"]}
-    assert byname["a.mp3"]["suggested"] == "Ethereal / Melodic / Techno"
+    assert byname["a.mp3"]["suggested"] == "Ethereal / Melodic Techno"
     assert byname["b.mp3"]["current"] == "Blues"
     assert byname["b.mp3"]["suggested"] == ""
     assert byname["c.mp3"]["current"] == ""
@@ -280,10 +280,10 @@ def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
 
     # Aplico solo 'a', con destino explícito; 'b' no lo paso -> queda intacto.
     res = api.apply_normalize_selected(
-        [{"path": str(a), "new": "Ethereal / Melodic / Techno"}])
+        [{"path": str(a), "new": "Ethereal / Melodic Techno"}])
     assert res["applied"] == 1
     assert res["errors"] == []
-    assert read_id3(a).get("genre") == "Ethereal / Melodic / Techno"
+    assert read_id3(a).get("genre") == "Ethereal / Melodic Techno"
     assert read_id3(b).get("genre") == "Techno"          # sin tocar
 
     # Ítems sin path o sin destino se ignoran (no rompe).
@@ -304,8 +304,8 @@ def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
         write_id3_tags(f, "Art", "Tit", "", "Lab", genre, year)
         return f
 
-    mk("a.mp3", "Ethereal / Melodic / Techno", "2023")
-    mk("b.mp3", "Ethereal / Melodic / Techno", "2023")
+    mk("a.mp3", "Ethereal / Melodic Techno", "2023")
+    mk("b.mp3", "Ethereal / Melodic Techno", "2023")
     mk("c.mp3", "Deep House", "2022")
     mk("d.mp3", "", "2021")   # sin género -> se saltea
 
@@ -315,7 +315,7 @@ def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
     assert res["playlists"] == 2
     assert res["tracks"] == 3
     # la '/' del género se sanea a '_' en el nombre del archivo
-    f1 = out / "Ethereal _ Melodic _ Techno - 2023.m3u8"
+    f1 = out / "Ethereal _ Melodic Techno - 2023.m3u8"
     assert f1.exists()
     assert (out / "Deep House - 2022.m3u8").exists()
     txt = f1.read_text(encoding="utf-8")

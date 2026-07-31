@@ -20,7 +20,7 @@ def _mp3(folder, name, genre):
 
 
 def test_preview_clasifica_bien(tmp_path):
-    _mp3(tmp_path, "a.mp3", "Melodic House & Techno")     # -> Ethereal / Melodic / Techno (cambio)
+    _mp3(tmp_path, "a.mp3", "Melodic House & Techno")     # -> Ethereal / Melodic Techno (cambio)
     _mp3(tmp_path, "b.mp3", "Techno (Peak Time / Driving)")  # -> Techno (cambio)
     _mp3(tmp_path, "c.mp3", "Psychedelic")                # -> Psytrance (cambio)
     _mp3(tmp_path, "d.mp3", "Acid Techno")                # ya es categoría -> already_ok
@@ -34,7 +34,7 @@ def test_preview_clasifica_bien(tmp_path):
     assert r["no_match"] == 1
     assert r["no_genre"] == 1
     cambios = {c["old"]: c["new"] for c in r["changed"]}
-    assert cambios["Melodic House & Techno"] == "Ethereal / Melodic / Techno"
+    assert cambios["Melodic House & Techno"] == "Ethereal / Melodic Techno"
     assert cambios["Techno (Peak Time / Driving)"] == "Techno"
     assert cambios["Psychedelic"] == "Psytrance"
 
