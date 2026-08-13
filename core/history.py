@@ -11,8 +11,10 @@ from pathlib import Path
 
 
 def normalize_name(s):
-    """Normaliza un nombre para comparar (minúsculas, solo alfanumérico)."""
-    return re.sub(r'[^a-z0-9]+', '', str(s).lower())
+    """Normaliza un nombre para comparar: minúsculas y palabras alfanuméricas
+    ORDENADAS alfabéticamente. Al ordenar, el orden deja de importar, así
+    'Pepe & Toto' y 'Toto & Pepe' se detectan como el mismo track."""
+    return ''.join(sorted(re.findall(r'[a-z0-9]+', str(s).lower())))
 
 
 def build_name_index(history):

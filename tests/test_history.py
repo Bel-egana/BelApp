@@ -29,6 +29,16 @@ def test_index_y_duplicado_encontrado():
     assert dup['artista'] == 'CamelPhat'
 
 
+def test_normalize_ignora_orden_de_artistas():
+    # "Pepe & Toto" y "Toto & Pepe" deben coincidir (mismo track, orden distinto).
+    assert normalize_name("Pepe & Toto - Track") == normalize_name("Toto & Pepe - Track")
+    # Y el dup con artistas al revés se detecta en el historial:
+    hist = [{'artista': 'Pepe & Toto', 'track': 'X',
+             'destino': r'D:\M\Melodic\Sello\2024\Pepe & Toto - X.mp3'}]
+    idx = build_name_index(hist)
+    assert find_duplicate(["Toto & Pepe - X.mp3"], idx) is not None
+
+
 def test_duplicado_no_encontrado():
     idx = build_name_index(HIST)
     assert find_duplicate(["Stephan Bodzin - Strand.mp3"], idx) is None

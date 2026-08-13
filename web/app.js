@@ -141,9 +141,10 @@ function renderLoadTable() {
   if (t) parts.push(`${t} track${t > 1 ? 's' : ''}`);
   if (a) parts.push(`${a} album${a > 1 ? 's' : ''}`);
   let txt = parts.length ? parts.join(', ') : 'Ningún ítem cargado';
-  if (dups) txt += `   ·   ⚠ ${dups} ya en tu historial`;
+  if (dups) txt += `   ·   ⚠ ${dups} ya en tu historial — quitalos para continuar`;
   $('#load-count').textContent = txt;
-  $('#btn-continue').disabled = state.items.length === 0;
+  $('#btn-remove-dups').style.display = dups ? '' : 'none';
+  $('#btn-continue').disabled = state.items.length === 0 || dups > 0;
 }
 
 function loadSummary(res) {
@@ -353,6 +354,10 @@ $('#btn-playlists').addEventListener('click', async () => {
 });
 
 $('#btn-continue').addEventListener('click', async () => {
+  if (state.items.some((i) => i.is_dup)) {   // guarda: el botón ya está gateado
+    flashMsg('✗ Quitá los duplicados antes de continuar');
+    return;
+  }
   if (!$('#token').value.trim()) {
     flashMsg('✗ Necesitás un token de Discogs — usá el botón "Obtener token"');
     return;
@@ -360,6 +365,14 @@ $('#btn-continue').addEventListener('click', async () => {
   await saveConfig();
   showView('buscar');
   enterBuscar(true);
+});
+
+$('#btn-remove-dups').addEventListener('click', () => {
+  const n = state.items.filter((i) => i.is_dup).length;
+  if (!n) return;
+  state.items = state.items.filter((i) => !i.is_dup);
+  renderLoadTable();
+  flashMsg(`🗑 ${n} duplicado${n > 1 ? 's' : ''} quitado${n > 1 ? 's' : ''} de la lista`);
 });
 
 /* ── Vista Buscar & Confirmar ────────────────────────────── */
