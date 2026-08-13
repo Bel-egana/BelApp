@@ -507,24 +507,25 @@ function renderResults() {
       td.textContent = v || '';
       tr.appendChild(td);
     });
-    tr.addEventListener('click', () => selectResult(i));
+    tr.addEventListener('click', () => selectResult(i, true));   // clic = manual, sobrescribe
     tr.addEventListener('dblclick', () => confirmCurrent());
     tbody.appendChild(tr);
   });
 }
 
-function selectResult(i) {
+function selectResult(i, manual = false) {
   if (i < 0 || i >= results.length) return;
   selResult = i;
   document.querySelectorAll('#tbl-results tbody tr').forEach(
     (tr, j) => tr.classList.toggle('sel', j === i));
   const r = results[i];
-  // Discogs aporta sello/año (y la carpeta SOLO si quedó vacía: el género real
-  // sale del tag del track, no de Discogs). Artista/Título NO se tocan: el
-  // resultado es un release (su "título" es el álbum, no el track).
+  // Discogs aporta sello/año (y la carpeta SOLO si quedó vacía). Al AUTO-seleccionar
+  // (primera búsqueda) se completan solo los campos VACÍOS, para NO pisar lo que ya
+  // editaste/confirmaste. Al hacer clic en un resultado (manual) sí se sobrescribe,
+  // porque lo elegiste vos. Artista/Título NO se tocan (el "título" es del álbum).
   if (!$('#conf-genre').value.trim()) setGenre(r.genre || '');
-  $('#conf-label').value = r.label || '';
-  $('#conf-year').value = r.year || '';
+  if (manual || !$('#conf-label').value.trim()) $('#conf-label').value = r.label || '';
+  if (manual || !$('#conf-year').value.trim()) $('#conf-year').value = r.year || '';
   updatePreview();
   checkLabelSuggestion();
 }
