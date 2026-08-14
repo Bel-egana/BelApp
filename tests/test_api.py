@@ -292,6 +292,26 @@ def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
     assert res2["applied"] == 0
 
 
+def test_dests_existentes(tmp_path):
+    api = _api(tmp_path)
+    base = tmp_path / "Musica"
+    dest_dir = base / "Melodic Techno & Techno" / "Afterlife" / "2023"
+    dest_dir.mkdir(parents=True)
+    (dest_dir / "A - X.mp3").write_bytes(b"12345")          # destino existe (5 bytes)
+    src = tmp_path / "A - X.mp3"; src.write_bytes(b"1234567890")  # nuevo (10 bytes)
+    items = [
+        {"name": "A - X.mp3", "type": "track", "path": str(src),
+         "genre": "Melodic Techno & Techno", "label": "Afterlife", "year": "2023"},
+        {"name": "B - Y.mp3", "type": "track", "path": str(tmp_path / "B - Y.mp3"),
+         "genre": "Melodic Techno & Techno", "label": "Afterlife", "year": "2023"},
+    ]
+    res = api.dests_existentes(items, str(base))
+    assert len(res) == 1
+    assert res[0]["name"] == "A - X.mp3"
+    assert res[0]["size_nuevo"] == 10          # el que se movería
+    assert res[0]["size_existente"] == 5       # el que ya está
+
+
 def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
     from core.metadata import write_id3_tags
     api = _api(tmp_path)

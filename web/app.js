@@ -747,23 +747,47 @@ async function moveConfirmed() {
   const ready = state.items.filter((i) => i.status === 'confirmed');
   if (!ready.length) { setSearchStatus('✗ No hay ítems confirmados', 't-flag'); return; }
 
-  const dups = ready.filter((i) => i.is_dup).length;
-  let msg = `¿Mover ${ready.length} ítem${ready.length > 1 ? 's' : ''} ahora?`;
-  if (dups) msg += `\n\n⚠ ${dups} ya figura${dups > 1 ? 'n' : ''} en tu historial.`;
-  msg += '\n\nVas a poder deshacerlo desde la pantalla de Resultado.';
-  if (!(await confirmModal('Confirmar', msg))) return;
-
-  showView('resultado');
-  $('#move-log').textContent = 'Moviendo…';
-
+  const base = $('#base-path').value.trim();
   const payload = ready.map((i) => ({
     type: i.type, path: i.path, name: i.name,
     artist: i.artist, title: i.title, album: i.album,
     genre: i.conf.genre, genre_specific: i.conf.genre_specific,
     label: i.conf.label, year: i.conf.year,
   }));
-  const res = await api().move_items(
-    payload, $('#base-path').value.trim());
+
+  // Pre-chequeo: destinos que YA existen en disco (esos NO se mueven, no se pisan).
+  let yaExisten = [];
+  try { yaExisten = await api().dests_existentes(payload, base); } catch (e) { yaExisten = []; }
+
+  const dups = ready.filter((i) => i.is_dup).length;
+  let msg = `¿Mover ${ready.length} ítem${ready.length > 1 ? 's' : ''} ahora?`;
+  if (dups) msg += `\n\n⚠ ${dups} ya figura${dups > 1 ? 'n' : ''} en tu historial.`;
+  if (yaExisten.length) {
+    const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
+    const lineas = yaExisten.slice(0, 6).map((d) => {
+      if (d.size_nuevo != null && d.size_existente != null) {
+        let reco;
+        if (d.size_nuevo > d.size_existente)
+          reco = 'este es más grande → borrá el de destino y volvé a moverlo';
+        else if (d.size_nuevo < d.size_existente)
+          reco = 'el de destino es más grande → borrá este';
+        else reco = 'mismo tamaño (probablemente idéntico)';
+        return `   • ${d.name}\n       este ${mb(d.size_nuevo)} vs destino ${mb(d.size_existente)} → ${reco}`;
+      }
+      return `   • ${d.name}`;
+    }).join('\n');
+    const mas = yaExisten.length > 6 ? `\n   …y ${yaExisten.length - 6} más` : '';
+    msg += `\n\n⚠ ${yaExisten.length} ya existe${yaExisten.length > 1 ? 'n' : ''} en el destino ` +
+      `(no se ${yaExisten.length > 1 ? 'van' : 'va'} a mover, para no pisar). ` +
+      `Recomendación por calidad (tamaño):\n${lineas}${mas}`;
+  }
+  msg += '\n\nVas a poder deshacerlo desde la pantalla de Resultado.';
+  if (!(await confirmModal('Confirmar', msg))) return;
+
+  showView('resultado');
+  $('#move-log').textContent = 'Moviendo…';
+
+  const res = await api().move_items(payload, base);
 
   renderMoveResult(res);
 

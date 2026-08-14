@@ -378,6 +378,28 @@ class Api:
         except Exception:
             return 0
 
+    def dests_existentes(self, items, base_path):
+        """Ítems cuyo destino YA existe en disco (se saltearían al mover, para no
+        pisar). Sirve para avisar ANTES de mover. Para los tracks devuelve el
+        tamaño del archivo nuevo y el existente, para recomendar cuál conservar
+        (más grande ≈ mejor calidad). NUNCA borra nada."""
+        existentes = []
+        for it in items or []:
+            try:
+                dest = build_path(base_path, it['genre'], it['label'],
+                                  it['year'], it['name'])
+                if not dest.exists():
+                    continue
+                info = {'name': it['name']}
+                src = Path(it.get('path', ''))
+                if dest.is_file() and src.is_file():   # comparación solo para tracks
+                    info['size_nuevo'] = src.stat().st_size
+                    info['size_existente'] = dest.stat().st_size
+                existentes.append(info)
+            except Exception:
+                continue
+        return existentes
+
     def move_items(self, items, base_path, period=''):
         now = datetime.now().strftime('%d/%m/%Y %H:%M')
         folders, log, new_hist, txt_paths = set(), [], [], []
