@@ -89,17 +89,35 @@ function removeItem(id) {
   renderLoadTable();
 }
 
-function showDupInfo(it) {
+async function showDupInfo(it) {
   const d = it.dup_info || {};
-  const msg =
+  let msg =
     'Este ítem coincide con algo que YA ordenaste:\n\n' +
     `• Artista:  ${d.artista || '—'}\n` +
     `• Track:  ${d.track || '—'}\n` +
     `• Fecha:  ${d.fecha || '—'}\n` +
     `• Género:  ${d.genero || '—'}\n` +
     `• Sello:  ${d.sello || '—'}\n` +
-    `• Ubicación:  ${d.destino || '—'}\n\n` +
-    'Coincide por nombre de archivo: puede ser el mismo tema en otra compilación.';
+    `• Ubicación:  ${d.destino || '—'}\n`;
+
+  // Comparación de tamaño (calidad) entre el cargado y el ya ordenado.
+  try {
+    const s = await api().tamano_archivos(it.path, d.destino);
+    if (s.a >= 0 && s.b >= 0) {
+      const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
+      let reco;
+      if (s.a > s.b) reco = 'el que cargaste es MÁS GRANDE → conviene quedarte con este y borrar el del historial';
+      else if (s.a < s.b) reco = 'el del historial es MÁS GRANDE → conviene quedarte con ese y borrar el que cargaste';
+      else reco = 'mismo tamaño (probablemente idéntico)';
+      msg += `\n📊 Calidad (por tamaño):\n` +
+        `   • Este (cargado):  ${mb(s.a)}\n` +
+        `   • En historial:  ${mb(s.b)}\n` +
+        `   → ${reco}\n`;
+    }
+  } catch (e) { /* si falla, seguimos sin la comparación */ }
+
+  msg += '\nCoincide por nombre de archivo: puede ser el mismo tema en otra ' +
+    'compilación. (Vos decidís y borrás a mano — la app no borra nada.)';
   confirmModal('Ya en historial', msg);
 }
 

@@ -400,6 +400,17 @@ class Api:
                 continue
         return existentes
 
+    def tamano_archivos(self, path_a, path_b):
+        """Tamaños en bytes de dos archivos, para comparar calidad. -1 si el
+        archivo no existe. No toca nada."""
+        def sz(p):
+            try:
+                pp = Path(p)
+                return pp.stat().st_size if pp.is_file() else -1
+            except Exception:
+                return -1
+        return {'a': sz(path_a), 'b': sz(path_b)}
+
     def move_items(self, items, base_path, period=''):
         now = datetime.now().strftime('%d/%m/%Y %H:%M')
         folders, log, new_hist, txt_paths = set(), [], [], []

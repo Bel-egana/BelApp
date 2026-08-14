@@ -292,6 +292,16 @@ def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
     assert res2["applied"] == 0
 
 
+def test_tamano_archivos(tmp_path):
+    api = _api(tmp_path)
+    a = tmp_path / "a.mp3"; a.write_bytes(b"12345")           # 5
+    b = tmp_path / "b.mp3"; b.write_bytes(b"1234567890")      # 10
+    assert api.tamano_archivos(str(a), str(b)) == {"a": 5, "b": 10}
+    # inexistente -> -1
+    r = api.tamano_archivos(str(a), str(tmp_path / "nope.mp3"))
+    assert r["a"] == 5 and r["b"] == -1
+
+
 def test_dests_existentes(tmp_path):
     api = _api(tmp_path)
     base = tmp_path / "Musica"
