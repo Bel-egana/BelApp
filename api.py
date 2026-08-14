@@ -222,11 +222,18 @@ class Api:
     def _dup_index(self):
         return build_name_index(load_history(self._history_path))
 
+    def _dup_real(self, dup):
+        """Un duplicado solo cuenta si el archivo que YA ordenaste sigue en disco.
+        Si lo borraste, la entrada del historial quedó obsoleta y NO marca dup."""
+        if dup and dup.get('destino') and Path(dup['destino']).exists():
+            return dup
+        return None
+
     def _track_item(self, path, dup_index):
         p = Path(path)
         id3 = read_id3(p)
         parsed = parse_filename(p.name)
-        dup = find_duplicate([p.name], dup_index)
+        dup = self._dup_real(find_duplicate([p.name], dup_index))
         query = f"{parsed.get('artist', '')} {parsed.get('title', '')}".strip() or Path(p.name).stem
         return {'type': 'track', 'name': p.name, 'path': str(p),
                 'folder_name': '', 'search_query': query,
@@ -251,7 +258,7 @@ class Api:
             return None
         parsed = parse_folder_name(fp.name)
         id3 = read_id3(audio[0])
-        dup = find_duplicate([f.name for f in audio], dup_index)
+        dup = self._dup_real(find_duplicate([f.name for f in audio], dup_index))
         query = f"{parsed.get('artist', '')} {parsed.get('album', '')}".strip() or fp.name
         return {'type': 'album', 'name': fp.name, 'path': str(fp),
                 'folder_name': fp.name, 'search_query': query,

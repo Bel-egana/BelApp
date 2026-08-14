@@ -92,8 +92,10 @@ def test_load_tracks_mismo_nombre_distinta_carpeta_entran_los_dos(tmp_path):
 def test_duplicado_contra_historial(tmp_path):
     from core.history import save_history
     hist = tmp_path / "historial.json"
+    dest = tmp_path / "org" / "X - Y.mp3"; dest.parent.mkdir()
+    dest.write_bytes(b"")          # el archivo ya ordenado tiene que EXISTIR
     save_history(hist, [{"artista": "X", "track": "Y", "fecha": "01/01/2026",
-                         "destino": r"D:\M\X - Y.mp3"}])
+                         "destino": str(dest)}])
     api = Api(config_path=tmp_path / "c.json", history_path=hist)
     f = tmp_path / "X - Y.mp3"
     f.write_bytes(b"")
@@ -290,6 +292,23 @@ def test_apply_normalize_selected_solo_los_elegidos(tmp_path):
     res2 = api.apply_normalize_selected(
         [{"path": "", "new": "Techno"}, {"path": str(b), "new": ""}])
     assert res2["applied"] == 0
+
+
+def test_dup_solo_si_el_archivo_del_historial_sigue_existiendo(tmp_path):
+    import json
+    api = _api(tmp_path)
+    f = tmp_path / "A - X.mp3"; f.write_bytes(b"")          # el que se carga
+    org = tmp_path / "org"; org.mkdir()
+    dest = org / "A - X.mp3"; dest.write_bytes(b"")          # el ya ordenado (existe)
+    hist = [{"artista": "A", "track": "X", "destino": str(dest)}]
+    (tmp_path / "historial.json").write_text(json.dumps(hist), encoding="utf-8")
+
+    # con el archivo del historial presente -> se marca dup
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is True
+
+    # lo borro -> la entrada quedó obsoleta -> NO se marca dup
+    dest.unlink()
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is False
 
 
 def test_tamano_archivos(tmp_path):
