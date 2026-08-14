@@ -89,6 +89,15 @@ function removeItem(id) {
   renderLoadTable();
 }
 
+// Compara dos tamaños con tolerancia (100 KB o 1%): 'igual' si la diferencia
+// es chica (no significativa para la calidad), o 'a'/'b' según cuál es más grande.
+function compararTamano(sa, sb) {
+  const diff = Math.abs(sa - sb);
+  const tol = Math.max(102400, 0.01 * Math.max(sa, sb));
+  if (diff <= tol) return 'igual';
+  return sa > sb ? 'a' : 'b';
+}
+
 async function showDupInfo(it) {
   const d = it.dup_info || {};
   let msg =
@@ -105,10 +114,11 @@ async function showDupInfo(it) {
     const s = await api().tamano_archivos(it.path, d.destino);
     if (s.a >= 0 && s.b >= 0) {
       const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
+      const cmp = compararTamano(s.a, s.b);
       let reco;
-      if (s.a > s.b) reco = 'el que cargaste es MÁS GRANDE → conviene quedarte con este y borrar el del historial';
-      else if (s.a < s.b) reco = 'el del historial es MÁS GRANDE → conviene quedarte con ese y borrar el que cargaste';
-      else reco = 'mismo tamaño (probablemente idéntico)';
+      if (cmp === 'igual') reco = 'prácticamente el mismo tamaño (probablemente idéntico) — cualquiera sirve';
+      else if (cmp === 'a') reco = 'el que cargaste es MÁS GRANDE → conviene quedarte con este y borrar el del historial';
+      else reco = 'el del historial es MÁS GRANDE → conviene quedarte con ese y borrar el que cargaste';
       msg += `\n📊 Calidad (por tamaño):\n` +
         `   • Este (cargado):  ${mb(s.a)}\n` +
         `   • En historial:  ${mb(s.b)}\n` +
@@ -784,12 +794,11 @@ async function moveConfirmed() {
     const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
     const lineas = yaExisten.slice(0, 6).map((d) => {
       if (d.size_nuevo != null && d.size_existente != null) {
+        const cmp = compararTamano(d.size_nuevo, d.size_existente);
         let reco;
-        if (d.size_nuevo > d.size_existente)
-          reco = 'este es más grande → borrá el de destino y volvé a moverlo';
-        else if (d.size_nuevo < d.size_existente)
-          reco = 'el de destino es más grande → borrá este';
-        else reco = 'mismo tamaño (probablemente idéntico)';
+        if (cmp === 'igual') reco = 'prácticamente idénticos (mismo tamaño)';
+        else if (cmp === 'a') reco = 'este es más grande → borrá el de destino y volvé a moverlo';
+        else reco = 'el de destino es más grande → borrá este';
         return `   • ${d.name}\n       este ${mb(d.size_nuevo)} vs destino ${mb(d.size_existente)} → ${reco}`;
       }
       return `   • ${d.name}`;
