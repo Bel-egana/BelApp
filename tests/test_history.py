@@ -39,6 +39,20 @@ def test_normalize_ignora_orden_de_artistas():
     assert find_duplicate(["Toto & Pepe - X.mp3"], idx) is not None
 
 
+def test_normalize_ignora_conectores_de_artistas():
+    # "&" vs "vs" vs "feat" no deben diferenciar (mismo track, distinto nombre).
+    n = normalize_name
+    assert n("Liquid Soul & Vini Vici - Universe Inside Me") == \
+           n("Vini Vici vs Liquid Soul - Universe Inside Me")
+    assert n("A feat B - X") == n("B & A - X")
+    # Y el dup se detecta en el historial aunque cambie el conector/orden:
+    hist = [{'artista': 'Vini Vici vs Liquid Soul', 'track': 'Universe Inside Me',
+             'destino': r'D:\M\Psy\Iboga\2016\Vini Vici vs Liquid Soul - Universe Inside Me.mp3'}]
+    idx = build_name_index(hist)
+    assert find_duplicate(
+        ["Liquid Soul & Vini Vici - Universe Inside Me.mp3"], idx) is not None
+
+
 def test_duplicado_no_encontrado():
     idx = build_name_index(HIST)
     assert find_duplicate(["Stephan Bodzin - Strand.mp3"], idx) is None

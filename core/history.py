@@ -10,11 +10,18 @@ import re
 from pathlib import Path
 
 
+# Conectores de artistas que ignoramos al comparar: son ruido, no identifican
+# el track. Así 'A & B', 'B vs A' y 'A feat B' cuentan como lo mismo.
+_CONECTORES = {'vs', 'versus', 'feat', 'featuring', 'ft', 'and', 'pres', 'presents'}
+
+
 def normalize_name(s):
-    """Normaliza un nombre para comparar: minúsculas y palabras alfanuméricas
-    ORDENADAS alfabéticamente. Al ordenar, el orden deja de importar, así
-    'Pepe & Toto' y 'Toto & Pepe' se detectan como el mismo track."""
-    return ''.join(sorted(re.findall(r'[a-z0-9]+', str(s).lower())))
+    """Normaliza un nombre para comparar: palabras alfanuméricas en minúsculas,
+    ORDENADAS y sin conectores de artistas. Así el orden no importa y
+    'Liquid Soul & Vini Vici' coincide con 'Vini Vici vs Liquid Soul'."""
+    palabras = [w for w in re.findall(r'[a-z0-9]+', str(s).lower())
+                if w not in _CONECTORES]
+    return ''.join(sorted(palabras))
 
 
 def build_name_index(history):
