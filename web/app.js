@@ -1120,7 +1120,13 @@ $('#tour-next').addEventListener('click', () => {
 });
 $('#tour-prev').addEventListener('click', () => tourShow(tourIdx - 1));
 $('#tour-skip').addEventListener('click', tourEnd);
-$('#btn-guia').addEventListener('click', () => { showView('cargar'); tourShow(0); });
+$('#btn-guia').addEventListener('click', () => $('#guide-overlay').classList.add('show'));
+$('#guide-close').addEventListener('click', () => $('#guide-overlay').classList.remove('show'));
+$('#guide-tour').addEventListener('click', () => {
+  $('#guide-overlay').classList.remove('show');
+  showView('cargar');
+  tourShow(0);
+});
 window.addEventListener('resize', () => {
   if ($('#tour-overlay').classList.contains('show')) tourShow(tourIdx);
 });

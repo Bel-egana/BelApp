@@ -215,6 +215,17 @@ tbody tr:hover { background: var(--surface2); }
 #tour-step { color: var(--muted); font-size: 12px; margin-right: auto; }
 #tour-nav .btn { padding: 5px 12px; font-size: 12px; }
 
+/* ── Guía en texto (ventana) ─────────────────────────────── */
+.guide-modal { width: 720px; max-width: 92vw; }
+.guide-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.guide-head h3 { margin: 0; margin-right: auto; font-size: 16px; }
+.guide-body { max-height: 62vh; overflow-y: auto; padding-right: 8px; }
+.guide-body h4 { color: var(--accent); font-size: 14px; margin: 16px 0 6px; }
+.guide-body h4:first-child { margin-top: 0; }
+.guide-body p, .guide-body li { color: #cfcfd6; font-size: 13px; line-height: 1.6; }
+.guide-body ul { margin: 4px 0 10px; padding-left: 20px; }
+.guide-body strong { color: #fff; }
+
 /* ── Vista Buscar & Confirmar ────────────────────────────── */
 .buscar-layout { display: flex; gap: 14px; flex: 1; min-height: 0; }
 

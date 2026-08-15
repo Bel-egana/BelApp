@@ -276,6 +276,59 @@
   </div>
 </div>
 
+<div id="guide-overlay" class="modal-overlay">
+  <div class="modal card guide-modal">
+    <div class="guide-head">
+      <h3>📖 Guía de BelApp</h3>
+      <button class="btn btn-ghost" id="guide-tour">▶ Ver tour visual</button>
+      <button class="btn btn-accent" id="guide-close">Cerrar</button>
+    </div>
+    <div class="guide-body">
+      <h4>¿Qué hace BelApp?</h4>
+      <p>Busca la metadata de tus tracks en <strong>Discogs</strong>, te deja validarla, escribe los tags (ID3/FLAC) y ordena los archivos en <strong>Género / Sello / Año</strong>. Además arma <strong>playlists para Traktor</strong>. El flujo es: <strong>Cargar → Buscar &amp; Confirmar → Resultado → Historial</strong>.</p>
+
+      <h4>1 · Cargar</h4>
+      <ul>
+        <li><strong>Carpeta base:</strong> con "Cambiar" elegís tu carpeta de música (donde se ordena todo).</li>
+        <li><strong>Discogs token:</strong> con "Obtener token" generás uno gratis y lo pegás. Se usa para las búsquedas.</li>
+        <li><strong>Cargar música:</strong> "+ Tracks sueltos" (archivos a mano), "+ Carpeta EP/Album" (una carpeta como un álbum), o "📂 Escanear carpeta" (todo lo de un sello — saltea las carpetas de año ya ordenadas).</li>
+        <li><strong>Duplicados:</strong> si un track ya está en tu historial se marca ⚠ YA EN HISTORIAL y "Continuar" se bloquea hasta que lo quites ("🗑 Quitar duplicados"). Con <strong>click derecho</strong> ves los detalles y una comparación de calidad por tamaño.</li>
+        <li><strong>Mantenimiento:</strong> "Normalizar géneros" (uniforma los géneros de una carpeta, con revisión track por track) y "Generar playlists para Traktor" (.m3u8 por Género + Año).</li>
+      </ul>
+
+      <h4>2 · Buscar &amp; Confirmar</h4>
+      <ul>
+        <li>Al cargar un ítem, <strong>busca solo</strong> en Discogs (Enter para re-buscar si editás el texto).</li>
+        <li>Elegí el resultado correcto (clic en la fila). Discogs completa <strong>sello y año</strong>; artista/título salen del nombre del archivo.</li>
+        <li>Elegí el <strong>Género (va al tag)</strong> y verificá la <strong>Carpeta (en disco)</strong>. Abajo ves el <strong>destino</strong> a donde va a ir.</li>
+        <li><strong>Confirmar</strong> cada ítem (se habilita con los 6 campos completos). Si el sello se parece a una carpeta que ya existe, te avisa para evitar duplicados.</li>
+        <li>Cuando estén todos confirmados → <strong>▶ Mover</strong>.</li>
+      </ul>
+
+      <h4>3 · Resultado</h4>
+      <ul>
+        <li>El log de todo lo que se movió (y avisos si algún destino ya existía).</li>
+        <li><strong>Deshacer movimiento:</strong> vuelve los archivos a su lugar original.</li>
+        <li><strong>Abrir carpeta:</strong> abre el destino en el Explorador.</li>
+      </ul>
+
+      <h4>4 · Historial</h4>
+      <ul>
+        <li>Registro de todo lo ordenado. <strong>Buscá</strong> por artista/track/sello, filtrá por género y navegá con <strong>paginación</strong>.</li>
+        <li><strong>Exportar a Excel</strong> el historial completo.</li>
+        <li><strong>Doble clic</strong> en una fila abre la carpeta; <strong>click derecho</strong> para copiar la ruta, abrir o eliminar el registro.</li>
+      </ul>
+
+      <h4>Cosas importantes 🛡️</h4>
+      <ul>
+        <li>BelApp <strong>nunca borra audio</strong>: solo mueve archivos y borra carpetas vacías.</li>
+        <li>La detección de duplicados ignora el orden de artistas y los conectores (&amp; / vs / feat), y verifica que el archivo del historial siga existiendo.</li>
+        <li>Tu token e historial se guardan al lado de la app, en tu compu.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 <div id="tour-overlay">
   <div id="tour-spot"></div>
   <div id="tour-bubble">
