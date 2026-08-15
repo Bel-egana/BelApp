@@ -60,9 +60,20 @@ class Api:
                 'discogs_token': data.get('discogs_token', '')}
 
     def save_config_values(self, base_path, discogs_token):
-        return save_config(self._config_path,
-                           {'base_path': base_path,
-                            'discogs_token': discogs_token})
+        # Merge: preserva otras claves (ej. tour_visto) al guardar base/token.
+        data = load_config(self._config_path)
+        data['base_path'] = base_path
+        data['discogs_token'] = discogs_token
+        return save_config(self._config_path, data)
+
+    def tour_visto(self):
+        """¿Ya se mostró la guía de bienvenida? (para mostrarla solo la 1ª vez)."""
+        return bool(load_config(self._config_path).get('tour_visto'))
+
+    def marcar_tour_visto(self):
+        data = load_config(self._config_path)
+        data['tour_visto'] = True
+        return save_config(self._config_path, data)
 
     # ── Diálogos nativos ──────────────────────────────────────────────────────
     def _dialog(self, kind, **kw):

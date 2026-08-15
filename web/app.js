@@ -1053,6 +1053,78 @@ $('#btn-hist-csv').addEventListener('click', async () => {
 
 document.getElementById('nav-historial').addEventListener('click', loadHistory);
 
+/* ── Guía / tour (coach marks) ───────────────────────────── */
+const TOUR = [
+  { sel: null, title: '¡Hola! Soy BelApp 🎧',
+    text: 'Organizo tu música: busco metadata en Discogs, ordeno por Género/Sello/Año y armo playlists para Traktor. Te muestro lo básico en 30 segundos.' },
+  { sel: 'nav', title: 'Las 4 pantallas',
+    text: 'El flujo es: Cargar → Buscar & Confirmar → Resultado → Historial. Te movés entre ellas desde este menú.' },
+  { sel: '#cfg-base', title: 'Tu carpeta de música',
+    text: 'Con "Cambiar" elegís tu carpeta base: ahí se ordenan los tracks en Género/Sello/Año.' },
+  { sel: '#cfg-token', title: 'Tu token de Discogs',
+    text: 'Con "Obtener token" generás uno gratis y lo pegás acá. Se usa para buscar la metadata de cada track.' },
+  { sel: '.load-actions', title: 'Cargar música',
+    text: 'Sumá tracks sueltos, una carpeta de EP/Album, o escaneá una carpeta entera (saltea las carpetas de año ya ordenadas).' },
+  { sel: '.tools-row', title: 'Mantenimiento',
+    text: 'Normalizá los géneros de una carpeta (con revisión track por track) o generá las playlists .m3u8 para Traktor.' },
+  { sel: '#btn-continue', title: 'Seguir el flujo',
+    text: 'Con ítems cargados, "Continuar" te lleva a buscarlos en Discogs, validar y confirmar antes de mover.' },
+  { sel: null, title: '¡Listo! 🎉',
+    text: 'Eso es lo esencial. Podés volver a ver esta guía cuando quieras con el botón "❓ Guía", arriba a la derecha.' },
+];
+let tourIdx = 0;
+
+function tourShow(i) {
+  tourIdx = Math.max(0, Math.min(i, TOUR.length - 1));
+  const step = TOUR[tourIdx];
+  const spot = $('#tour-spot');
+  const bubble = $('#tour-bubble');
+  $('#tour-overlay').classList.add('show');
+  $('#tour-title').textContent = step.title;
+  $('#tour-text').textContent = step.text;
+  $('#tour-step').textContent = `${tourIdx + 1} / ${TOUR.length}`;
+  $('#tour-prev').style.visibility = tourIdx === 0 ? 'hidden' : 'visible';
+  $('#tour-next').textContent = tourIdx === TOUR.length - 1 ? 'Listo ✓' : 'Siguiente →';
+
+  const el = step.sel ? document.querySelector(step.sel) : null;
+  if (el) {
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    spot.style.display = 'block';
+    spot.style.left = (r.left - pad) + 'px';
+    spot.style.top = (r.top - pad) + 'px';
+    spot.style.width = (r.width + pad * 2) + 'px';
+    spot.style.height = (r.height + pad * 2) + 'px';
+    const bh = bubble.offsetHeight || 170;
+    const bx = Math.max(16, Math.min(r.left, window.innerWidth - 316));
+    let by;
+    if (r.bottom + 12 + bh < window.innerHeight) by = r.bottom + 12;
+    else if (r.top - 12 - bh > 8) by = r.top - 12 - bh;
+    else by = Math.max(16, (window.innerHeight - bh) / 2);
+    bubble.style.left = bx + 'px';
+    bubble.style.top = by + 'px';
+  } else {
+    spot.style.display = 'none';
+    bubble.style.left = (window.innerWidth / 2 - 150) + 'px';
+    bubble.style.top = (window.innerHeight / 2 - 100) + 'px';
+  }
+}
+
+function tourEnd() {
+  $('#tour-overlay').classList.remove('show');
+  try { api().marcar_tour_visto(); } catch (e) { /* nada */ }
+}
+
+$('#tour-next').addEventListener('click', () => {
+  if (tourIdx === TOUR.length - 1) tourEnd(); else tourShow(tourIdx + 1);
+});
+$('#tour-prev').addEventListener('click', () => tourShow(tourIdx - 1));
+$('#tour-skip').addEventListener('click', tourEnd);
+$('#btn-guia').addEventListener('click', () => { showView('cargar'); tourShow(0); });
+window.addEventListener('resize', () => {
+  if ($('#tour-overlay').classList.contains('show')) tourShow(tourIdx);
+});
+
 /* ── Handshake con Python ────────────────────────────────── */
 window.addEventListener('pywebviewready', async () => {
   try {
@@ -1068,6 +1140,11 @@ window.addEventListener('pywebviewready', async () => {
     $('#status').textContent =
       'Conectado · Carpeta base: ' + cfg.base_path +
       (cfg.discogs_token ? ' · Token ✓' : ' · Sin token');
+    // Guía de bienvenida: solo la primera vez.
+    if (!(await api().tour_visto())) {
+      showView('cargar');
+      setTimeout(() => tourShow(0), 600);
+    }
   } catch (err) {
     $('#status').textContent = 'Error de puente: ' + err;
   }

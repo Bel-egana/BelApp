@@ -194,6 +194,27 @@ tbody tr:hover { background: var(--surface2); }
 .hist-pager { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .hist-pager .btn { padding: 4px 12px; font-size: 12px; }
 
+/* ── Guía / tour (coach marks) ───────────────────────────── */
+.cargar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+#tour-overlay { position: fixed; inset: 0; z-index: 300; display: none; }
+#tour-overlay.show { display: block; }
+#tour-spot {
+  position: fixed; border-radius: 10px; border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .72); transition: all .25s ease;
+  pointer-events: none;
+}
+#tour-bubble {
+  position: fixed; width: 300px; max-width: 82vw; padding: 16px 18px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 10px 34px rgba(0, 0, 0, .55); z-index: 301;
+  transition: left .25s ease, top .25s ease;
+}
+#tour-bubble h4 { margin: 0 0 6px; color: var(--accent); font-size: 14px; font-weight: 600; }
+#tour-bubble p { margin: 0 0 14px; color: #cfcfd6; font-size: 13px; line-height: 1.55; }
+#tour-nav { display: flex; align-items: center; gap: 8px; }
+#tour-step { color: var(--muted); font-size: 12px; margin-right: auto; }
+#tour-nav .btn { padding: 5px 12px; font-size: 12px; }
+
 /* ── Vista Buscar & Confirmar ────────────────────────────── */
 .buscar-layout { display: flex; gap: 14px; flex: 1; min-height: 0; }
 

@@ -35,15 +35,18 @@
 
 <main>
   <section id="view-cargar" class="view">
-    <h1>Cargar tracks</h1>
+    <div class="cargar-head">
+      <h1 style="margin:0">Cargar tracks</h1>
+      <button class="btn btn-ghost" id="btn-guia">❓ Guía</button>
+    </div>
 
-    <div class="cfg-row card">
+    <div class="cfg-row card" id="cfg-base">
       <span class="lbl">Carpeta base</span>
       <input type="text" id="base-path" spellcheck="false">
       <button class="btn btn-ghost" id="btn-pick-base">Cambiar</button>
     </div>
 
-    <div class="cfg-row card">
+    <div class="cfg-row card" id="cfg-token">
       <span class="lbl">Discogs token</span>
       <input type="password" id="token" spellcheck="false">
       <button class="btn btn-ghost" id="btn-eye" title="Mostrar / ocultar">👁</button>
@@ -269,6 +272,20 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="norm-cancel">Cancelar</button>
       <button class="btn btn-accent" id="norm-apply">Aplicar seleccionados</button>
+    </div>
+  </div>
+</div>
+
+<div id="tour-overlay">
+  <div id="tour-spot"></div>
+  <div id="tour-bubble">
+    <h4 id="tour-title"></h4>
+    <p id="tour-text"></p>
+    <div id="tour-nav">
+      <span id="tour-step"></span>
+      <button class="btn btn-ghost" id="tour-skip">Saltar</button>
+      <button class="btn btn-ghost" id="tour-prev">Anterior</button>
+      <button class="btn btn-accent" id="tour-next">Siguiente</button>
     </div>
   </div>
 </div>

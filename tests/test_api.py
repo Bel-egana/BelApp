@@ -14,6 +14,18 @@ def test_get_config_sin_archivo_devuelve_defaults(tmp_path):
     assert cfg["base_path"]            # algún default no vacío
 
 
+def test_tour_flag_y_config_no_lo_pisa(tmp_path):
+    api = _api(tmp_path)
+    api.save_config_values("D:/Musica", "tok")
+    assert api.tour_visto() is False
+    api.marcar_tour_visto()
+    assert api.tour_visto() is True
+    # guardar base/token NO debe borrar el flag del tour
+    api.save_config_values("D:/Otra", "tok2")
+    assert api.tour_visto() is True
+    assert api.get_config()["base_path"] == "D:/Otra"
+
+
 def test_save_y_get_config_roundtrip(tmp_path):
     api = Api(config_path=tmp_path / "config.json",
               history_path=tmp_path / "historial.json")
