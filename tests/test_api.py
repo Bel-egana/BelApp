@@ -1003,3 +1003,26 @@ def test_append_to_playlists_ignora_anio_invalido(tmp_path):
     tracks = [{'path': str(tmp_path / "A - Uno.mp3"), 'title': 'Uno',
                'artist': 'A', 'genre': 'Deep House', 'label': 'L', 'year': '0202'}]
     assert api._append_to_playlists(tracks) == []
+
+
+# ── move_items actualiza las playlists ───────────────────────────────────────
+def test_move_actualiza_playlists(tmp_path):
+    api = _api(tmp_path)
+    api.set_playlists_dir(str(tmp_path / "pl"))
+    base = tmp_path / "M"; base.mkdir()
+    src = tmp_path / "A - T.mp3"; src.write_bytes(b"")
+    item = _track_item(src, genre="Deep House", year="2026")
+    res = api.move_items([item], str(base), "2026_06")
+    assert res["moved"] == 1
+    assert any(p["name"] == "Deep House - 2026" and p["added"] == 1
+               for p in res["playlists_updated"])
+    assert (tmp_path / "pl" / "Deep House" / "2026.nml").exists()
+
+
+def test_move_sin_playlists_dir_no_rompe(tmp_path):
+    api = _api(tmp_path)
+    base = tmp_path / "M"; base.mkdir()
+    src = tmp_path / "A - T.mp3"; src.write_bytes(b"")
+    res = api.move_items([_track_item(src)], str(base), "")
+    assert res["moved"] == 1
+    assert res["playlists_updated"] == []

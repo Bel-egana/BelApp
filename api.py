@@ -716,6 +716,7 @@ class Api:
     def move_items(self, items, base_path, period=''):
         now = datetime.now().strftime('%d/%m/%Y %H:%M')
         folders, log, new_hist, txt_paths = set(), [], [], []
+        pl_new = []   # tracks para anexar a las playlists de género/año
         moved_sources, src_parents = [], set()
         last_dir = str(base_path)
         moved_t = moved_a = errors = 0
@@ -758,6 +759,9 @@ class Api:
                                      'sello': it['label'], 'año': it['year'],
                                      'destino': str(dest)})
                     txt_paths.append(str(dest))
+                    pl_new.append({'path': str(dest), 'title': title,
+                                   'artist': it['artist'], 'genre': tag_genre,
+                                   'label': it['label'], 'year': it['year']})
                     moved_sources.append(it['path'])
                     src_parents.add(str(src.parent))
                     last_dir = str(dest_dir)
@@ -792,6 +796,10 @@ class Api:
                             'genero': it['genre'], 'sello': it['label'],
                             'año': it['year'], 'destino': str(tf)})
                         txt_paths.append(str(tf))
+                        pl_new.append({'path': str(tf),
+                                       'title': ap.get('title') or tf.stem,
+                                       'artist': tf_artist, 'genre': tag_genre,
+                                       'label': it['label'], 'year': it['year']})
                     L(f"📁 {nm} ({total} tracks) [tags {tagged}✓]", 'album')
                     moved_sources.append(it['path'])
                     src_parents.add(str(src_f.parent))
@@ -819,13 +827,14 @@ class Api:
             save_history(self._history_path,
                          load_history(self._history_path) + new_hist)
         self._invalidate_disk_index()   # la biblioteca cambió: re-escanear la próxima
+        playlists_updated = self._append_to_playlists(pl_new)
         txt_count = self._append_txt(base_path, period, txt_paths) if period else 0
         L(f"✓ Listo! {moved_t} tracks, {moved_a} albums, "
           f"{len(folders)} carpetas nuevas, {errors} errores.", 'warn')
         return {'log': log, 'moved': moved_t, 'moved_albums': moved_a,
                 'errors': errors, 'new_folders': len(folders),
                 'txt_count': txt_count, 'moved_sources': moved_sources,
-                'open_dir': last_dir}
+                'open_dir': last_dir, 'playlists_updated': playlists_updated}
 
     def _cleanup_empty_dirs(self, start, base):
         """Elimina carpetas vacías subiendo desde 'start' hasta (sin incluir) 'base'."""
