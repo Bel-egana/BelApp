@@ -974,3 +974,32 @@ def test_generate_playlists_persiste_dir(tmp_path):
     out = tmp_path / "pl"
     api.generate_playlists(str(lib), str(out), "", "")
     assert api.get_playlists_dir() == str(out)
+
+
+# ── _append_to_playlists (agrupa por género/año y anexa) ──────────────────────
+def test_append_to_playlists_crea_y_dedup(tmp_path):
+    api = _api(tmp_path)
+    out = tmp_path / "pl"
+    api.set_playlists_dir(str(out))
+    tracks = [{'path': str(tmp_path / "A - Uno.mp3"), 'title': 'Uno',
+               'artist': 'A', 'genre': 'Deep House', 'label': 'L', 'year': '2026'}]
+    upd = api._append_to_playlists(tracks)
+    assert len(upd) == 1 and upd[0]['added'] == 1
+    assert (out / "Deep House" / "2026.nml").exists()
+    upd2 = api._append_to_playlists(tracks)
+    assert upd2 == []
+
+
+def test_append_to_playlists_sin_dir_no_hace_nada(tmp_path):
+    api = _api(tmp_path)
+    tracks = [{'path': str(tmp_path / "A - Uno.mp3"), 'title': 'Uno',
+               'artist': 'A', 'genre': 'Deep House', 'label': 'L', 'year': '2026'}]
+    assert api._append_to_playlists(tracks) == []
+
+
+def test_append_to_playlists_ignora_anio_invalido(tmp_path):
+    api = _api(tmp_path)
+    api.set_playlists_dir(str(tmp_path / "pl"))
+    tracks = [{'path': str(tmp_path / "A - Uno.mp3"), 'title': 'Uno',
+               'artist': 'A', 'genre': 'Deep House', 'label': 'L', 'year': '0202'}]
+    assert api._append_to_playlists(tracks) == []

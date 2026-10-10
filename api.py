@@ -24,7 +24,8 @@ from core.history import (build_disk_index, build_name_index, find_disk_duplicat
                           find_disk_duplicates_all, find_duplicate, load_history,
                           normalize_name, save_history)
 from core.labels import sellos_parecidos
-from core.playlists import build_traktor_playlist_nml, group_by_genre_year
+from core.playlists import (append_tracks_to_nml, build_traktor_playlist_nml,
+                            group_by_genre_year)
 from core.metadata import is_audio, read_id3, write_id3_tags
 from core.normalizer import normalize_folder
 from core.organizer import build_path
@@ -360,6 +361,43 @@ class Api:
 
     def _pl_log_path(self):
         return self._config_path.parent / 'playlists_generadas.json'
+
+    def _append_to_playlists(self, pl_new):
+        """Anexa los tracks recién ordenados a sus .nml de género/año en la
+        carpeta de playlists configurada. Devuelve [{'name','file','added'}] de
+        las que cambiaron. Nunca frena el ordenado si algo falla."""
+        data = load_config(self._config_path)
+        pdir = (data.get('playlists_dir') or '').strip()
+        if not pdir or not data.get('playlists_auto', True):
+            return []
+        out_p = Path(pdir)
+        try:
+            out_p.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return []
+        grupos = {}
+        for t in pl_new:
+            year = (t.get('year') or '').strip()
+            genre = (t.get('genre') or '').strip()
+            if not genre or not re.fullmatch(r'(19|20)\d\d', year):
+                continue
+            grupos.setdefault((genre, year), []).append(t)
+        updated = []
+        for (genre, year), items in grupos.items():
+            try:
+                safe = re.sub(r'[<>:"/\\|?*]', '_', genre).strip() or 'Sin género'
+                gdir = out_p / safe
+                gdir.mkdir(parents=True, exist_ok=True)
+                fp = gdir / f'{year}.nml'
+                existing = fp.read_text(encoding='utf-8') if fp.exists() else ''
+                text, added = append_tracks_to_nml(existing, str(year), items)
+                if added > 0:
+                    fp.write_text(text, encoding='utf-8')
+                    updated.append({'name': f'{safe} - {year}',
+                                    'file': f'{safe}/{year}.nml', 'added': added})
+            except Exception:
+                continue
+        return updated
 
     def get_playlists_log(self):
         """Lista de playlists generadas (para verlas desde Historial)."""
