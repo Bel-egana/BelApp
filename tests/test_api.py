@@ -38,8 +38,14 @@ def test_save_y_get_config_roundtrip(tmp_path):
 # ── Vista Cargar ──────────────────────────────────────────────────────────────
 
 def _api(tmp_path):
-    return Api(config_path=tmp_path / "config.json",
-               history_path=tmp_path / "historial.json")
+    api = Api(config_path=tmp_path / "config.json",
+              history_path=tmp_path / "historial.json")
+    # Base aislada y VACÍA: así el índice de duplicados en disco no escanea la
+    # biblioteca real del usuario (DEFAULT_BASE) durante los tests.
+    lib = tmp_path / "_biblioteca"
+    lib.mkdir(exist_ok=True)
+    api.save_config_values(str(lib), "")
+    return api
 
 
 def test_load_tracks_lee_y_parsea(tmp_path):
@@ -70,12 +76,12 @@ def test_load_tracks_ignora_no_audio_y_repetidos(tmp_path):
 def test_load_tracks_respeta_tope(tmp_path):
     api = _api(tmp_path)
     paths = []
-    for i in range(30):
-        f = tmp_path / f"Artista - Track {i:02d}.mp3"
+    for i in range(110):
+        f = tmp_path / f"Artista - Track {i:03d}.mp3"
         f.write_bytes(b"")
         paths.append(str(f))
     out = api.load_tracks(paths, [], 0)
-    assert len(out["items"]) == 25
+    assert len(out["items"]) == 100   # tope por tanda (MAX_ITEMS)
     assert out["capped"] is True
 
 
@@ -109,6 +115,7 @@ def test_duplicado_contra_historial(tmp_path):
     save_history(hist, [{"artista": "X", "track": "Y", "fecha": "01/01/2026",
                          "destino": str(dest)}])
     api = Api(config_path=tmp_path / "c.json", history_path=hist)
+    api.save_config_values(str(tmp_path / "org"), "")   # base aislada (no la real)
     f = tmp_path / "X - Y.mp3"
     f.write_bytes(b"")
     out = api.load_tracks([str(f)], [], 0)
@@ -138,6 +145,32 @@ def test_load_album_folder_sin_audio_da_error(tmp_path):
     vacia.mkdir()
     out = api.load_album_folder(str(vacia), [], 0)
     assert "error" in out
+
+
+def test_load_album_folders_carga_varias(tmp_path):
+    api = _api(tmp_path)
+    paths = []
+    for i in range(3):
+        ep = tmp_path / f"EP {i}"; ep.mkdir()
+        (ep / f"Artista{i} - Track.mp3").write_bytes(b"x")
+        paths.append(str(ep))
+    vacia = tmp_path / "sin audio"; vacia.mkdir()   # una sin audio
+    paths.append(str(vacia))
+    out = api.load_album_folders(paths, [], 0)
+    assert len(out["items"]) == 3
+    assert out["no_audio"] == ["sin audio"]
+    assert out["capped"] is False
+
+
+def test_load_album_folders_respeta_tope(tmp_path):
+    api = _api(tmp_path)
+    paths = []
+    for i in range(120):
+        ep = tmp_path / f"EP {i:03d}"; ep.mkdir()
+        (ep / f"A{i} - T.mp3").write_bytes(b"x")
+        paths.append(str(ep))
+    out = api.load_album_folders(paths, [], 0)
+    assert len(out["items"]) == 100 and out["capped"] is True   # tope por tanda
 
 
 # ── Vista Buscar ──────────────────────────────────────────────────────────────
@@ -218,6 +251,128 @@ def test_load_tracks_detecta_genero_especifico_del_tag(tmp_path):
     write_id3_tags(f, "A", "T", "", "Lab", "Melodic House & Techno", "2020")
     out = api.load_tracks([str(f)], [], 0)
     assert out["items"][0]["genre_specific"] == "Ethereal / Melodic Techno"
+
+
+def test_generate_playlists_filtra_por_genero_y_anio(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    lib = tmp_path / "lib"; lib.mkdir()
+    def mk(name, g, y):
+        f = lib / name; f.write_bytes(b"")
+        write_id3_tags(f, "Ar", "Ti", "", "La", g, y)
+    mk("a.mp3", "Deep House", "2022")
+    mk("b.mp3", "Deep House", "2023")
+    mk("c.mp3", "Techno", "2022")
+
+    # solo por género
+    r = api.generate_playlists(str(lib), str(tmp_path / "o1"), "Deep House", "")
+    assert r.get("tracks") == 2
+    assert (tmp_path / "o1" / "Deep House" / "2022.nml").exists()
+    assert not (tmp_path / "o1" / "Techno" / "2022.nml").exists()
+
+    # por género + año
+    r2 = api.generate_playlists(str(lib), str(tmp_path / "o2"), "Deep House", "2022")
+    assert r2.get("tracks") == 1
+    assert (tmp_path / "o2" / "Deep House" / "2022.nml").exists()
+    assert not (tmp_path / "o2" / "Deep House" / "2023.nml").exists()
+
+    # sin filtro -> todos
+    r3 = api.generate_playlists(str(lib), str(tmp_path / "o3"), "", "")
+    assert r3.get("tracks") == 3
+
+    # la palabra "todos" en año NO se toma literal -> equivale a todos
+    r3b = api.generate_playlists(str(lib), str(tmp_path / "o3b"), "", "todos")
+    assert r3b.get("tracks") == 3
+
+    # filtro sin coincidencias -> error claro
+    r4 = api.generate_playlists(str(lib), str(tmp_path / "o4"), "Trance", "")
+    assert "error" in r4
+
+
+def test_generate_playlists_log_y_tracks_afuera(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    lib = tmp_path / "lib"; lib.mkdir()
+    ok = lib / "a.mp3"; ok.write_bytes(b"")
+    write_id3_tags(ok, "Ar", "Ti", "", "La", "Deep House", "2022")
+    (lib / "b.mp3").write_bytes(b"")          # sin tags -> queda afuera
+    out = tmp_path / "o"
+
+    r1 = api.generate_playlists(str(lib), str(out), "", "")
+    assert r1["ya_fecha"] == ""               # primera vez, sin aviso
+    assert r1["sin_tag"] == 1                  # b.mp3 quedó afuera
+    assert r1["sin_tag_file"] and (out / r1["sin_tag_file"]).exists()
+    assert len(api.get_playlists_log()) == 1
+
+    r2 = api.generate_playlists(str(lib), str(out), "", "")
+    assert r2["ya_fecha"] != ""                # segunda vez igual -> avisa
+    assert len(api.get_playlists_log()) == 2
+
+
+def test_buscar_duplicados_carpeta(tmp_path):
+    api = Api(config_path=tmp_path / "c.json", history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    lib = base / "Trance" / "Iboga"; lib.mkdir(parents=True)
+    (lib / "A - Track.mp3").write_bytes(b"x" * 500)      # copia en la biblioteca
+    api.save_config_values(str(base), "")
+    carpeta = tmp_path / "revisar"; carpeta.mkdir()
+    (carpeta / "A - Track.mp3").write_bytes(b"y" * 800)  # otra copia (más grande)
+    (carpeta / "B - Unico.mp3").write_bytes(b"z")         # sin duplicado
+
+    out = api.buscar_duplicados_carpeta(str(carpeta))
+    assert out["grupos"] == 1                             # solo A tiene duplicado
+    rp = carpeta / out["report_file"]
+    assert rp.exists()
+    txt = rp.read_text(encoding="utf-8")
+    assert "A - Track.mp3" in txt
+    assert "B - Unico" not in txt
+
+    # carpeta sin duplicados -> 0
+    limpia = tmp_path / "limpia"; limpia.mkdir()
+    (limpia / "C - Solo.mp3").write_bytes(b"w")
+    assert api.buscar_duplicados_carpeta(str(limpia))["grupos"] == 0
+
+
+def test_review_y_apply_years(tmp_path):
+    from core.metadata import write_id3_tags, read_id3
+    api = _api(tmp_path)
+    d20 = tmp_path / "lib" / "2020"; d20.mkdir(parents=True)
+    a = d20 / "A - X.mp3"; a.write_bytes(b"")
+    write_id3_tags(a, "Ar", "X", "", "La", "Deep House", "")     # sin año, en carpeta 2020
+    b = tmp_path / "lib" / "B - Y.mp3"; b.write_bytes(b"")
+    write_id3_tags(b, "Ar", "Y", "", "La", "Deep House", "2019")  # ya tiene año
+
+    r = api.review_folder_years(str(tmp_path / "lib"))
+    assert r["total"] == 2 and r["sin_anio"] == 1
+    ta = [t for t in r["tracks"] if "A - X" in t["path"]][0]
+    assert ta["current"] == "" and ta["suggested"] == "2020"     # sugiere de la carpeta
+
+    out = api.apply_years_selected([{"path": str(a), "year": "2020"},
+                                    {"path": str(b), "year": "0202"}])  # uno inválido
+    assert out["applied"] == 1 and len(out["errors"]) == 1
+    assert read_id3(a).get("year") == "2020"
+
+
+def test_generate_playlists_ignora_anio_invalido(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    lib = tmp_path / "lib"; lib.mkdir()   # sin carpeta de año en el path
+    f = lib / "a.mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Ar", "Ti", "", "La", "Deep House", "0202")  # año basura
+    r = api.generate_playlists(str(lib), str(tmp_path / "o"), "", "")
+    assert "error" in r or r.get("tracks") == 0    # no arma playlist "0202"
+    assert not (tmp_path / "o" / "Deep House" / "0202.nml").exists()
+
+
+def test_generate_playlists_saca_anio_del_path_si_falta_tag(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    d = tmp_path / "lib" / "2019"; d.mkdir(parents=True)
+    f = d / "a.mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Ar", "Ti", "", "La", "Deep House", "")   # género sí, año NO
+    r = api.generate_playlists(str(tmp_path / "lib"), str(tmp_path / "o"), "", "")
+    assert r.get("tracks") == 1
+    assert (tmp_path / "o" / "Deep House" / "2019.nml").exists()   # año del path
 
 
 def test_suggest_labels_detecta_parecidos(tmp_path):
@@ -323,6 +478,121 @@ def test_dup_solo_si_el_archivo_del_historial_sigue_existiendo(tmp_path):
     assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is False
 
 
+def test_dup_detectado_por_biblioteca_en_disco_sin_historial(tmp_path):
+    # Un track ya ordenado (físicamente en la biblioteca) se detecta desde la
+    # primera pantalla AUNQUE no esté en el historial.
+    api = Api(config_path=tmp_path / "c.json",
+              history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    ya = base / "Trance" / "Iboga" / "2016"
+    ya.mkdir(parents=True)
+    (ya / "Ace Ventura & Loud - Our Moment (Captain Hook Remix).mp3").write_bytes(b"x")
+    api.save_config_values(str(base), "")
+
+    # Lo cargo desde otra carpeta (Downloads), con el orden de artistas cambiado
+    dl = tmp_path / "Downloads"; dl.mkdir()
+    f = dl / "Loud & Ace Ventura - Our Moment (Captain Hook Remix).mp3"
+    f.write_bytes(b"x")
+    out = api.load_tracks([str(f)], [], 0)
+    assert out["items"][0]["is_dup"] is True
+    assert out["items"][0]["dup_info"]["origen"] == "biblioteca"
+
+
+def test_dup_dos_copias_en_biblioteca_carga_la_sin_ordenar(tmp_path):
+    # Caso real: la misma canción está DOS veces bajo la base (una ordenada en
+    # Género/Sello/Año y otra en una carpeta 'zzz' sin ordenar). Al cargar la
+    # de 'zzz', tiene que avisar que YA está ordenada (no excluirla como self).
+    api = Api(config_path=tmp_path / "c.json", history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    ordenada = base / "Psychedelic Trance" / "Iboga Records" / "2016" / \
+        "Ace Ventura & Loud - Our Moment (Captain Hook Remix).mp3"
+    ordenada.parent.mkdir(parents=True)
+    ordenada.write_bytes(b"x")
+    zzz = base / "Psychedelic Trance" / "zzz ace ventura" / \
+        "Ace Ventura & Loud - Our Moment (Captain Hook Remix).mp3"
+    zzz.parent.mkdir(parents=True)
+    zzz.write_bytes(b"x")
+    api.save_config_values(str(base), "")
+
+    out = api.load_tracks([str(zzz)], [], 0)   # cargo la copia sin ordenar
+    assert out["items"][0]["is_dup"] is True
+    assert out["items"][0]["dup_info"]["destino"] == str(ordenada)
+
+
+def test_dedup_ignora_backup_de_traktor_por_defecto(tmp_path):
+    # La carpeta "Traktor playlist backup" se ignora POR DEFECTO (sin config):
+    # una copia ahí adentro NO marca el track como duplicado.
+    api = Api(config_path=tmp_path / "c.json", history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    bkp = base / "Traktor playlist backup" / "lagger"; bkp.mkdir(parents=True)
+    (bkp / "Aktyum - Monkey Island.mp3").write_bytes(b"x")
+    api.save_config_values(str(base), "")
+
+    dl = tmp_path / "Downloads"; dl.mkdir()
+    f = dl / "Aktyum - Monkey Island.mp3"; f.write_bytes(b"x")
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is False
+
+    # pero una copia en una carpeta NORMAL de la biblioteca sí se detecta
+    normal = base / "Trance" / "Iboga" / "2016"; normal.mkdir(parents=True)
+    (normal / "Aktyum - Monkey Island.mp3").write_bytes(b"x")
+    api._invalidate_disk_index()
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is True
+
+
+def test_dedup_ignore_configurable_por_config(tmp_path):
+    # El mecanismo de ignorados por config sigue andando para otras carpetas.
+    api = Api(config_path=tmp_path / "c.json", history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    carpeta = base / "mis respaldos"; carpeta.mkdir(parents=True)
+    (carpeta / "X - Y.mp3").write_bytes(b"x")
+    dl = tmp_path / "dl"; dl.mkdir()
+    f = dl / "X - Y.mp3"; f.write_bytes(b"x")
+
+    api.save_config_values(str(base), "", "mis respaldos")
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is False
+    api.save_config_values(str(base), "", "")   # sin ignorarla -> se detecta
+    assert api.load_tracks([str(f)], [], 0)["items"][0]["is_dup"] is True
+
+
+def test_tamano_archivos_resuelve_carpeta_de_album(tmp_path):
+    # Si el ítem es una CARPETA (EP/Album), tamano_archivos debe buscar adentro
+    # el track que coincide por nombre y devolver SU tamaño (no -1).
+    api = _api(tmp_path)
+    ep = tmp_path / "Ghost Rider - Shamanic EP"; ep.mkdir()
+    (ep / "Ghost Rider - Shamanic.mp3").write_bytes(b"x" * 500)
+    dest = tmp_path / "org" / "Ghost Rider - Shamanic.mp3"
+    dest.parent.mkdir(); dest.write_bytes(b"y" * 800)
+    out = api.tamano_archivos(str(ep), str(dest))
+    assert out["a"] == 500 and out["b"] == 800
+
+
+def test_disk_index_listo_cambia_tras_primera_carga(tmp_path):
+    api = Api(config_path=tmp_path / "c.json", history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"; base.mkdir()
+    api.save_config_values(str(base), "")
+    assert api.disk_index_listo() is False        # todavía no escaneó
+    f = tmp_path / "A - B.mp3"; f.write_bytes(b"x")
+    api.load_tracks([str(f)], [], 0)
+    assert api.disk_index_listo() is True          # ya cacheado
+    # tras mover, se invalida y vuelve a False
+    api._invalidate_disk_index()
+    assert api.disk_index_listo() is False
+
+
+def test_re_escanear_carpeta_ya_ordenada_no_marca_self_match(tmp_path):
+    # Cargar un archivo que YA está en la biblioteca (el mismo, no una copia)
+    # NO debe marcarse como duplicado de sí mismo.
+    api = Api(config_path=tmp_path / "c.json",
+              history_path=tmp_path / "h.json")
+    base = tmp_path / "Musica"
+    ya = base / "Trance" / "Iboga" / "2016"; ya.mkdir(parents=True)
+    f = ya / "A - Track.mp3"; f.write_bytes(b"x")
+    api.save_config_values(str(base), "")
+
+    out = api.load_tracks([str(f)], [], 0)
+    assert out["items"][0]["is_dup"] is False   # es él mismo, no un duplicado
+
+
 def test_tamano_archivos(tmp_path):
     api = _api(tmp_path)
     a = tmp_path / "a.mp3"; a.write_bytes(b"12345")           # 5
@@ -353,7 +623,7 @@ def test_dests_existentes(tmp_path):
     assert res[0]["size_existente"] == 5       # el que ya está
 
 
-def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
+def test_generate_playlists_crea_nml_por_genero_year(tmp_path):
     from core.metadata import write_id3_tags
     api = _api(tmp_path)
     base = tmp_path / "Musica"
@@ -375,14 +645,14 @@ def test_generate_playlists_crea_m3u8_por_genero_year(tmp_path):
     assert res.get("ok") is True
     assert res["playlists"] == 2
     assert res["tracks"] == 3
-    # la '/' del género se sanea a '_' en el nombre del archivo
-    f1 = out / "Ethereal _ Melodic Techno - 2023.m3u8"
+    # la '/' del género se sanea a '_' en el nombre del archivo .nml
+    f1 = out / "Ethereal _ Melodic Techno" / "2023.nml"
     assert f1.exists()
-    assert (out / "Deep House - 2022.m3u8").exists()
+    assert (out / "Deep House" / "2022.nml").exists()
     txt = f1.read_text(encoding="utf-8")
-    assert txt.startswith("#EXTM3U")
-    assert str(base / "g" / "a.mp3") in txt
-    assert str(base / "g" / "b.mp3") in txt
+    assert txt.startswith("<?xml")                       # .nml nativo de Traktor
+    assert '<NODE TYPE="PLAYLIST" NAME="2023">' in txt
+    assert 'FILE="a.mp3"' in txt and 'FILE="b.mp3"' in txt
 
 
 # ── Vista Resultado: mover + deshacer ─────────────────────────────────────────
@@ -512,6 +782,28 @@ def test_move_album_completo(tmp_path):
     assert (ddir / "Artista - T1.mp3").exists()
     assert (ddir / "Artista - T2.mp3").exists()
     assert len(load_history(tmp_path / "historial.json")) == 2
+
+
+def test_move_compilado_conserva_artista_por_track(tmp_path):
+    from core.metadata import read_id3
+    api = _api(tmp_path)
+    base = tmp_path / "M"; base.mkdir()
+    comp = tmp_path / "VA - Best Sets"; comp.mkdir()
+    (comp / "Rocky Tilbor - Uno.mp3").write_bytes(b"")
+    (comp / "Otro Dj - Dos.mp3").write_bytes(b"")
+    (comp / "SinArtista.mp3").write_bytes(b"")      # sin artista en el nombre
+    item = {'type': 'album', 'path': str(comp), 'name': 'VA - Best Sets',
+            'artist': 'Best of my sets', 'title': '', 'album': 'Best Sets',
+            'genre': 'Trance', 'label': 'Iboga', 'year': '2018'}
+    api.move_items([item], str(base), "2026_06")
+    ddir = base / "Trance" / "Iboga" / "2018" / "VA - Best Sets"
+    # cada track conserva SU artista real
+    assert read_id3(ddir / "Rocky Tilbor - Uno.mp3").get("artist") == "Rocky Tilbor"
+    assert read_id3(ddir / "Otro Dj - Dos.mp3").get("artist") == "Otro Dj"
+    # el que no trae artista en el nombre -> usa el del campo como respaldo
+    assert read_id3(ddir / "SinArtista.mp3").get("artist") == "Best of my sets"
+    # el año va igual para todos
+    assert read_id3(ddir / "Otro Dj - Dos.mp3").get("year") == "2018"
 
 
 def test_move_limpia_carpeta_origen_vacia(tmp_path):
@@ -656,3 +948,29 @@ def test_write_history_xlsx(tmp_path):
     assert ws["A1"].value == "Fecha"      # encabezado
     assert ws["B2"].value == "A"          # artista de la 1ra fila
     assert ws["C2"].value == "T"
+
+
+# ── Config de playlists (auto-append) ────────────────────────────────────────
+def test_playlists_dir_config_get_set(tmp_path):
+    api = _api(tmp_path)
+    assert api.get_playlists_dir() == ""
+    api.set_playlists_dir(str(tmp_path / "pl"))
+    assert api.get_playlists_dir() == str(tmp_path / "pl")
+
+
+def test_playlists_auto_config_default_on(tmp_path):
+    api = _api(tmp_path)
+    assert api.get_playlists_auto() is True
+    api.set_playlists_auto(False)
+    assert api.get_playlists_auto() is False
+
+
+def test_generate_playlists_persiste_dir(tmp_path):
+    from core.metadata import write_id3_tags
+    api = _api(tmp_path)
+    lib = tmp_path / "lib"; lib.mkdir()
+    f = lib / "a.mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Ar", "Ti", "", "La", "Deep House", "2026")
+    out = tmp_path / "pl"
+    api.generate_playlists(str(lib), str(out), "", "")
+    assert api.get_playlists_dir() == str(out)
