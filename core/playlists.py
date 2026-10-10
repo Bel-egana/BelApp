@@ -139,3 +139,43 @@ def build_traktor_playlist_nml(name, tracks):
         f'<PLAYLIST ENTRIES="{len(tracks)}" TYPE="LIST" UUID="{uuid.uuid4().hex}">'
         + pk +
         '</PLAYLIST></NODE></SUBNODES></NODE></PLAYLISTS>\n</NML>\n')
+
+
+def append_tracks_to_nml(existing, name, new_tracks):
+    """Anexa new_tracks a un .nml existente SIN pisar lo que ya tiene ni duplicar.
+    'existing' = texto del .nml actual, o '' / None si no existe.
+    Devuelve (texto, agregados). agregados == -1 si el .nml existe pero su formato
+    no es reconocible (en ese caso NO se modifica)."""
+    if not existing or not existing.strip():
+        text = build_traktor_playlist_nml(name, new_tracks)
+        keys = {traktor_key(t.get('path', '')) for t in new_tracks if t.get('path')}
+        return text, len(keys)
+
+    m_col = re.search(r'<COLLECTION ENTRIES="(\d+)">', existing)
+    m_pl = re.search(r'<PLAYLIST ENTRIES="(\d+)" TYPE="LIST"', existing)
+    if not (m_col and m_pl and '</COLLECTION>' in existing
+            and '</PLAYLIST>' in existing):
+        return existing, -1   # formato no reconocido: no tocar
+
+    presentes = set(re.findall(r'PRIMARYKEY TYPE="TRACK" KEY="([^"]*)"', existing))
+    nuevos, vistos = [], set(presentes)
+    for t in new_tracks:
+        k = traktor_key(t.get('path', ''))
+        if not k or k in vistos:
+            continue
+        vistos.add(k)
+        nuevos.append(t)
+    if not nuevos:
+        return existing, 0
+
+    col_add = ''.join(_collection_entry(t) for t in nuevos)
+    pk_add = ''.join(_playlist_entry(t) for t in nuevos)
+    n = len(nuevos)
+    text = existing
+    text = text.replace('</COLLECTION>', col_add + '</COLLECTION>', 1)
+    text = text.replace('</PLAYLIST>', pk_add + '</PLAYLIST>', 1)
+    text = text.replace(m_col.group(0),
+                        f'<COLLECTION ENTRIES="{int(m_col.group(1)) + n}">', 1)
+    text = text.replace(m_pl.group(0),
+                        f'<PLAYLIST ENTRIES="{int(m_pl.group(1)) + n}" TYPE="LIST"', 1)
+    return text, n
