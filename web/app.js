@@ -1148,6 +1148,15 @@ let ctxDestino = '';
 
 async function loadHistory() {
   history = await api().get_history();
+  // Backfill del género del tag (una sola vez) para filtrar/mostrar por tag.
+  try {
+    if (await api().history_needs_genre_backfill()) {
+      flashMsg('⏳ Actualizando géneros del historial… (solo esta vez, puede tardar)', 600000);
+      await api().backfill_history_genres();
+      flashMsg('');
+      history = await api().get_history();
+    }
+  } catch (e) { /* si falla, seguimos con lo que haya */ }
   populateGenreFilter();
   renderHistory();
 }
@@ -1155,7 +1164,8 @@ async function loadHistory() {
 function populateGenreFilter() {
   const sel = $('#hist-genre');
   const cur = sel.value;
-  const genres = [...new Set(history.map((h) => h.genero).filter(Boolean))].sort();
+  const genres = [...new Set(history
+    .map((h) => h.genero_especifico || h.genero).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">Todos los géneros</option>' +
     genres.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
   sel.value = cur;   // preservar la selección si todavía existe
@@ -1169,9 +1179,10 @@ function historyFiltered() {
   const flt = $('#hist-search').value.trim().toLowerCase();
   const gen = $('#hist-genre').value;
   return history.slice().reverse().filter((h) => {
-    if (gen && (h.genero || '') !== gen) return false;
+    const g = h.genero_especifico || h.genero || '';
+    if (gen && g !== gen) return false;
     if (!flt) return true;
-    const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
+    const blob = [h.artista, h.track, g, h.sello, h.destino]
       .join(' ').toLowerCase();
     return blob.includes(flt);
   });
@@ -1189,7 +1200,8 @@ function renderHistory() {
   tbody.innerHTML = '';
   rows.slice(desde, desde + HIST_PAGE_SIZE).forEach((h) => {
     const tr = document.createElement('tr');
-    [h.fecha, h.artista, h.track, h.genero, h.sello, h['año'], h.destino]
+    [h.fecha, h.artista, h.track, (h.genero_especifico || h.genero),
+     h.sello, h['año'], h.destino]
       .forEach((v) => {
         const td = document.createElement('td');
         td.textContent = v || '';
