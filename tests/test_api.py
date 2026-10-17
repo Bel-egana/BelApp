@@ -1032,9 +1032,11 @@ def test_move_sin_playlists_dir_no_rompe(tmp_path):
 def test_open_target_archivo_existe(tmp_path):
     from pathlib import Path
     api = _api(tmp_path)
-    f = tmp_path / "x.mp3"; f.write_bytes(b"")
-    sel, target = api._open_target(str(f))
-    assert sel is True and Path(target) == f
+    folder = tmp_path / "Genero" / "Sello" / "2026"
+    folder.mkdir(parents=True)
+    f = folder / "x.mp3"; f.write_bytes(b"")
+    # Devuelve la CARPETA que contiene al archivo.
+    assert Path(api._open_target(str(f))) == folder
 
 
 def test_open_target_archivo_falta_usa_carpeta_existente(tmp_path):
@@ -1043,8 +1045,7 @@ def test_open_target_archivo_falta_usa_carpeta_existente(tmp_path):
     folder = tmp_path / "Genero" / "Sello" / "2026"
     folder.mkdir(parents=True)
     faltante = folder / "nombre-mal.mp3"   # el archivo no existe
-    sel, target = api._open_target(str(faltante))
-    assert sel is False and Path(target) == folder
+    assert Path(api._open_target(str(faltante))) == folder
 
 
 # ── Backfill del género del tag en el historial ──────────────────────────────

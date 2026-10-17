@@ -904,30 +904,26 @@ class Api:
                 'errors': errors, 'problems': problems}
 
     def _open_target(self, path):
-        """Mejor objetivo para abrir en Explorer: el archivo si existe (para
-        seleccionarlo); si no, la primera carpeta ancestro que exista; y si
-        nada existe, la carpeta base. Devuelve (seleccionar, ruta)."""
+        """Carpeta a abrir en Explorer: la del archivo, o —si cambió de nombre o
+        se movió— la primera carpeta ancestro que exista; y si nada existe, la
+        carpeta base. Abrir la CARPETA (no 'seleccionar') funciona siempre y nunca
+        cae en Documentos."""
         p = Path(path)
-        if p.is_file():
-            return True, p
-        cur = p
+        cur = p if p.is_dir() else p.parent
         while cur != cur.parent:
             if cur.is_dir():
-                return False, cur
+                return cur
             cur = cur.parent
         base = load_config(self._config_path).get('base_path', '')
-        return False, (Path(base) if base else p)
+        return Path(base) if base else p
 
     def open_in_explorer(self, path):
-        """Abre el Explorador: selecciona el archivo, o la primera carpeta que
-        exista (nunca cae en Documentos aunque el archivo haya cambiado de nombre)."""
+        """Abre en el Explorador la carpeta que contiene al archivo (o la primera
+        que exista hacia arriba). Nunca cae en Documentos."""
         import subprocess
-        seleccionar, target = self._open_target(path)
+        folder = self._open_target(path)
         try:
-            if seleccionar:
-                subprocess.Popen(['explorer', f'/select,{target}'])
-            else:
-                subprocess.Popen(['explorer', str(target)])
+            subprocess.Popen(['explorer', str(folder)])
         except Exception:
             pass
         return True
