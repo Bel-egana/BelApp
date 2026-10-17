@@ -68,10 +68,6 @@
       <button class="btn btn-ghost" id="btn-dups">🔍 Buscar duplicados en una carpeta</button>
       <button class="btn btn-ghost" id="btn-years">📅 Completar años de una carpeta</button>
       <button class="btn btn-ghost" id="btn-playlists">🎧 Generar playlists para Traktor</button>
-      <label class="pl-auto" title="Al ordenar, suma los tracks nuevos a las playlists de género/año existentes">
-        <input type="checkbox" id="chk-pl-auto" checked>
-        Actualizar playlists al ordenar
-      </label>
     </div>
 
     <div class="card table-card grow">
@@ -293,6 +289,10 @@
       <input type="text" id="pl-dest" readonly placeholder="(elegí carpeta destino)">
       <button class="btn btn-ghost" id="pl-pick-dest">Elegir</button>
     </div>
+    <label class="pl-auto" style="margin-top:8px" title="Al ordenar música nueva, se suma sola a las playlists de género/año de esta carpeta (sin duplicar)">
+      <input type="checkbox" id="chk-pl-auto" checked>
+      Mantener estas playlists actualizadas al ordenar
+    </label>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="pl-cancel">Cancelar</button>
       <button class="btn btn-accent" id="pl-go">Generar</button>
