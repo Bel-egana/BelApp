@@ -529,6 +529,7 @@ $('#norm-apply').addEventListener('click', async () => {
   await confirmModal('Listo ✓',
     `${res.applied} géneros actualizados.${errTxt}\n\n` +
     'En Traktor: re-importá/actualizá la carpeta para ver los tags nuevos.');
+  await loadHistory();   // refleja los géneros nuevos en el Historial y el contador
 });
 
 $('#btn-playlists').addEventListener('click', () => {
@@ -1158,8 +1159,35 @@ async function loadHistory() {
     }
   } catch (e) { /* si falla, seguimos con lo que haya */ }
   populateGenreFilter();
+  updateFixBroadButton();
   renderHistory();
 }
+
+// Géneros "amplios" (nombre de carpeta) que NO son un sub-género válido.
+function broadOnlyGenres() {
+  return (GENRES || []).filter((g) => !(GENRES_SPEC || []).includes(g));
+}
+
+function updateFixBroadButton() {
+  const btn = $('#btn-hist-fixbroad');
+  if (!btn) return;
+  const broad = broadOnlyGenres();
+  const n = history.filter((h) =>
+    broad.includes((h.genero_especifico || h.genero || '').trim())).length;
+  btn.hidden = n === 0;
+  btn.textContent = `🎚 Arreglar géneros amplios (${n})`;
+}
+
+$('#btn-hist-fixbroad').addEventListener('click', async () => {
+  const r = await api().history_broad_genre_tracks();
+  if (!r.tracks || !r.tracks.length) {
+    await confirmModal('Arreglar géneros amplios',
+      'No hay pistas con género amplio para arreglar. ✅');
+    await loadHistory();
+    return;
+  }
+  openNormReview(r);
+});
 
 function populateGenreFilter() {
   const sel = $('#hist-genre');
