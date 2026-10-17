@@ -959,6 +959,23 @@ class Api:
             save_history(self._history_path, hist)
         return {'updated': updated, 'total': len(hist)}
 
+    def history_broad_genre_tracks(self):
+        """Pistas del historial cuyo género quedó con un nombre de carpeta AMPLIO
+        (ej. 'Deep & Progressive House') en vez de un sub-género. Devuelve el mismo
+        formato que review_folder_genres, para reusar la pantalla de Normalizar."""
+        broad_only = [g for g in BEL_GENRES if g not in BEL_GENRES_SPECIFIC]
+        tracks, seen = [], set()
+        for h in load_history(self._history_path):
+            g = (h.get('genero_especifico') or h.get('genero') or '').strip()
+            dest = h.get('destino', '')
+            if g in broad_only and dest and dest not in seen and Path(dest).is_file():
+                seen.add(dest)
+                tracks.append({'path': dest, 'current': g,
+                               'suggested': map_genre_specific(g)})
+        con_sug = sum(1 for t in tracks if t['suggested'])
+        return {'tracks': tracks, 'total': len(tracks),
+                'con_sugerencia': con_sug, 'sin_genero': 0}
+
     def delete_history_entry(self, destino):
         hist = [h for h in load_history(self._history_path)
                 if h.get('destino', '') != destino]
@@ -1172,7 +1189,7 @@ class Api:
         género (con el destino elegido, que puede diferir del sugerido),
         preservando artista/título/álbum/sello/año. No mueve archivos.
         Devuelve {'applied': n, 'errors': [{path, error}]}."""
-        applied, errors = 0, []
+        applied, errors, cambios = 0, [], {}
         for it in items or []:
             path = it.get('path') or ''
             new = (it.get('new') or '').strip()
@@ -1185,8 +1202,20 @@ class Api:
                                tags.get('album', ''), tags.get('label', ''),
                                new, tags.get('year', ''))
                 applied += 1
+                cambios[str(f)] = new
             except Exception as e:
                 errors.append({'path': path, 'error': str(e)})
+        # Sincronizar el género del tag en el historial (la carpeta/amplio no cambia).
+        if cambios:
+            hist = load_history(self._history_path)
+            tocado = False
+            for h in hist:
+                nuevo = cambios.get(h.get('destino', ''))
+                if nuevo:
+                    h['genero_especifico'] = nuevo
+                    tocado = True
+            if tocado:
+                save_history(self._history_path, hist)
         return {'applied': applied, 'errors': errors}
 
     def _write_history_xlsx(self, path, hist):

@@ -1087,3 +1087,37 @@ def test_move_guarda_genero_especifico(tmp_path):
     api.move_items([item], str(base), "2026_06")
     hist = load_history(tmp_path / "historial.json")
     assert any(h.get('genero_especifico') == 'Melodic Techno' for h in hist)
+
+
+# ── Re-taguear géneros amplios desde el historial ────────────────────────────
+def test_history_broad_genre_tracks(tmp_path):
+    from core.history import save_history
+    api = _api(tmp_path)
+    f1 = tmp_path / "a.mp3"; f1.write_bytes(b"")
+    f2 = tmp_path / "b.mp3"; f2.write_bytes(b"")
+    f3 = tmp_path / "c.mp3"; f3.write_bytes(b"")
+    save_history(tmp_path / "historial.json", [
+        {'destino': str(f1), 'genero_especifico': 'Deep & Progressive House'},  # amplio -> entra
+        {'destino': str(f2), 'genero_especifico': 'Deep House'},                 # específico -> NO
+        {'destino': str(f3), 'genero_especifico': 'Trance'},                     # específico válido -> NO
+    ])
+    r = api.history_broad_genre_tracks()
+    assert r['total'] == 1
+    assert r['tracks'][0]['path'] == str(f1)
+    assert r['tracks'][0]['current'] == 'Deep & Progressive House'
+
+
+def test_apply_normalize_actualiza_historial(tmp_path):
+    from core.metadata import write_id3_tags, read_id3
+    from core.history import save_history, load_history
+    api = _api(tmp_path)
+    f = tmp_path / "a.mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Ar", "Ti", "", "La", "Deep & Progressive House", "2026")
+    save_history(tmp_path / "historial.json",
+                 [{'destino': str(f), 'genero': 'Deep & Progressive House',
+                   'genero_especifico': 'Deep & Progressive House'}])
+    api.apply_normalize_selected([{'path': str(f), 'new': 'Progressive House'}])
+    assert read_id3(f)['genre'] == 'Progressive House'          # el tag cambió
+    h = load_history(tmp_path / "historial.json")[0]
+    assert h['genero_especifico'] == 'Progressive House'        # el historial también
+    assert h['genero'] == 'Deep & Progressive House'            # la carpeta/amplio NO cambia
