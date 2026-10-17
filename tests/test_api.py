@@ -1026,3 +1026,63 @@ def test_move_sin_playlists_dir_no_rompe(tmp_path):
     res = api.move_items([_track_item(src)], str(base), "")
     assert res["moved"] == 1
     assert res["playlists_updated"] == []
+
+
+# ── Abrir en carpeta: sube a la primera carpeta que exista ───────────────────
+def test_open_target_archivo_existe(tmp_path):
+    from pathlib import Path
+    api = _api(tmp_path)
+    f = tmp_path / "x.mp3"; f.write_bytes(b"")
+    sel, target = api._open_target(str(f))
+    assert sel is True and Path(target) == f
+
+
+def test_open_target_archivo_falta_usa_carpeta_existente(tmp_path):
+    from pathlib import Path
+    api = _api(tmp_path)
+    folder = tmp_path / "Genero" / "Sello" / "2026"
+    folder.mkdir(parents=True)
+    faltante = folder / "nombre-mal.mp3"   # el archivo no existe
+    sel, target = api._open_target(str(faltante))
+    assert sel is False and Path(target) == folder
+
+
+# ── Backfill del género del tag en el historial ──────────────────────────────
+def test_backfill_history_genres(tmp_path):
+    from core.metadata import write_id3_tags
+    from core.history import save_history, load_history
+    api = _api(tmp_path)
+    f = tmp_path / "a.mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Ar", "Ti", "", "La", "Deep House", "2026")
+    save_history(tmp_path / "historial.json", [
+        {'destino': str(f), 'genero': 'Deep & Progressive House'},
+        {'destino': str(tmp_path / "no-existe.mp3"), 'genero': 'Trance'},
+    ])
+    r = api.backfill_history_genres()
+    assert r['updated'] == 2
+    hist = load_history(tmp_path / "historial.json")
+    assert hist[0]['genero_especifico'] == 'Deep House'      # del tag
+    assert hist[1]['genero_especifico'] == 'Trance'          # fallback al amplio
+    # idempotente: segunda corrida no cambia nada
+    assert api.backfill_history_genres()['updated'] == 0
+
+
+def test_history_needs_genre_backfill(tmp_path):
+    from core.history import save_history
+    api = _api(tmp_path)
+    save_history(tmp_path / "historial.json", [{'destino': 'x', 'genero': 'T'}])
+    assert api.history_needs_genre_backfill() is True
+    api.backfill_history_genres()
+    assert api.history_needs_genre_backfill() is False
+
+
+def test_move_guarda_genero_especifico(tmp_path):
+    from core.history import load_history
+    api = _api(tmp_path)
+    base = tmp_path / "M"; base.mkdir()
+    src = tmp_path / "A - T.mp3"; src.write_bytes(b"")
+    item = _track_item(src, genre="Psychedelic Trance",
+                       genre_specific="Melodic Techno", year="2026")
+    api.move_items([item], str(base), "2026_06")
+    hist = load_history(tmp_path / "historial.json")
+    assert any(h.get('genero_especifico') == 'Melodic Techno' for h in hist)

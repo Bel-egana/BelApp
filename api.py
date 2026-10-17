@@ -756,6 +756,7 @@ class Api:
                         {'type': 'file', 'src': str(src), 'dest': str(dest)})
                     new_hist.append({'fecha': now, 'artista': it['artist'] or '—',
                                      'track': title, 'genero': it['genre'],
+                                     'genero_especifico': tag_genre,
                                      'sello': it['label'], 'año': it['year'],
                                      'destino': str(dest)})
                     txt_paths.append(str(dest))
@@ -793,7 +794,9 @@ class Api:
                             'fecha': now,
                             'artista': tf_artist or '—',
                             'track': ap.get('title') or tf.stem,
-                            'genero': it['genre'], 'sello': it['label'],
+                            'genero': it['genre'],
+                            'genero_especifico': tag_genre,
+                            'sello': it['label'],
                             'año': it['year'], 'destino': str(tf)})
                         txt_paths.append(str(tf))
                         pl_new.append({'path': str(tf),
@@ -900,17 +903,31 @@ class Api:
         return {'restored': restored, 'skipped': skipped,
                 'errors': errors, 'problems': problems}
 
-    def open_in_explorer(self, path):
-        """Abre el Explorador: selecciona el archivo, o abre la carpeta."""
-        import subprocess
+    def _open_target(self, path):
+        """Mejor objetivo para abrir en Explorer: el archivo si existe (para
+        seleccionarlo); si no, la primera carpeta ancestro que exista; y si
+        nada existe, la carpeta base. Devuelve (seleccionar, ruta)."""
         p = Path(path)
+        if p.is_file():
+            return True, p
+        cur = p
+        while cur != cur.parent:
+            if cur.is_dir():
+                return False, cur
+            cur = cur.parent
+        base = load_config(self._config_path).get('base_path', '')
+        return False, (Path(base) if base else p)
+
+    def open_in_explorer(self, path):
+        """Abre el Explorador: selecciona el archivo, o la primera carpeta que
+        exista (nunca cae en Documentos aunque el archivo haya cambiado de nombre)."""
+        import subprocess
+        seleccionar, target = self._open_target(path)
         try:
-            if p.is_file():
-                subprocess.Popen(['explorer', '/select,', str(p)])
-            elif p.exists():
-                subprocess.Popen(['explorer', str(p)])
+            if seleccionar:
+                subprocess.Popen(['explorer', f'/select,{target}'])
             else:
-                subprocess.Popen(['explorer', str(p.parent)])
+                subprocess.Popen(['explorer', str(target)])
         except Exception:
             pass
         return True
@@ -918,6 +935,33 @@ class Api:
     # ── Vista Historial ───────────────────────────────────────────────────────
     def get_history(self):
         return load_history(self._history_path)
+
+    def history_needs_genre_backfill(self):
+        """¿Hay entradas sin 'genero_especifico' (el género del tag)?"""
+        return any(not (h.get('genero_especifico') or '').strip()
+                   for h in load_history(self._history_path))
+
+    def backfill_history_genres(self):
+        """Rellena 'genero_especifico' (género del TAG) en las entradas que no lo
+        tengan, leyendo el tag de cada archivo. Si el archivo ya no existe, usa el
+        género amplio como fallback. Devuelve {'updated', 'total'}."""
+        hist = load_history(self._history_path)
+        updated = 0
+        for h in hist:
+            if (h.get('genero_especifico') or '').strip():
+                continue
+            g = ''
+            try:
+                p = Path(h.get('destino', ''))
+                if p.is_file():
+                    g = (read_id3(p).get('genre') or '').strip()
+            except Exception:
+                g = ''
+            h['genero_especifico'] = g or (h.get('genero') or '')
+            updated += 1
+        if updated:
+            save_history(self._history_path, hist)
+        return {'updated': updated, 'total': len(hist)}
 
     def delete_history_entry(self, destino):
         hist = [h for h in load_history(self._history_path)
@@ -961,8 +1005,8 @@ class Api:
         for h in hist:
             if h.get('destino') == old_destino:
                 artist, track = h.get('artista', ''), h.get('track', '')
-                h.update({'genero': genre, 'sello': label, 'año': year,
-                          'destino': str(dest)})
+                h.update({'genero': genre, 'genero_especifico': genre,
+                          'sello': label, 'año': year, 'destino': str(dest)})
         write_id3_tags(dest, artist, track, '', label, genre, year)
         save_history(self._history_path, hist)
 
