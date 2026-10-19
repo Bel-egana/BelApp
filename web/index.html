@@ -249,6 +249,7 @@
 
   <div id="ctx-menu" class="ctx-menu">
     <div class="ctx-item" data-act="open">📂 Abrir en carpeta</div>
+    <div class="ctx-item" data-act="genre">🎚 Modificar género (tag)</div>
     <div class="ctx-item" data-act="edit">✏ Corregir ubicación</div>
     <div class="ctx-item" data-act="copy">📋 Copiar ruta destino</div>
     <div class="ctx-sep"></div>
@@ -319,6 +320,23 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="recat-cancel">Cancelar</button>
       <button class="btn btn-accent" id="recat-save">Guardar y mover</button>
+    </div>
+  </div>
+</div>
+
+<div id="genre-overlay" class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-title">🎚 Modificar género</div>
+    <div class="modal-msg" id="genre-info"></div>
+    <div class="modal-msg small" id="genre-cur" style="margin-top:-6px"></div>
+    <div class="datos-row" style="margin:10px 0 14px">
+      <label>Nuevo género <select id="genre-select"></select></label>
+    </div>
+    <div class="modal-msg small" style="color:var(--muted)">Solo cambia el tag del archivo y el historial. NO mueve el archivo (para eso usá "Corregir ubicación").</div>
+    <div id="genre-err" class="small" style="color:var(--accent2)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="genre-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="genre-save">Guardar</button>
     </div>
   </div>
 </div>

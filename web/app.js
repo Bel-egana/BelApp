@@ -1300,6 +1300,7 @@ $('#ctx-menu').addEventListener('click', async (e) => {
   const act = e.target.dataset.act;
   if (!act || !ctxDestino) return;
   if (act === 'open') api().open_in_explorer(ctxDestino);
+  else if (act === 'genre') openGenreModal(ctxDestino);
   else if (act === 'edit') openRecatModal(ctxDestino);
   else if (act === 'copy') navigator.clipboard.writeText(ctxDestino);
   else if (act === 'del') {
@@ -1309,6 +1310,38 @@ $('#ctx-menu').addEventListener('click', async (e) => {
       await loadHistory();
     }
   }
+});
+
+/* Modificar SOLO el género (tag) de una entrada del historial. No mueve nada. */
+let genreDestino = '';
+
+function openGenreModal(destino) {
+  const h = history.find((x) => x.destino === destino);
+  if (!h) return;
+  genreDestino = destino;
+  $('#genre-info').textContent = `${h.artista || '—'} — ${h.track || ''}`;
+  $('#genre-cur').textContent =
+    `Género actual: ${h.genero_especifico || h.genero || '(sin género)'}`;
+  const sel = $('#genre-select');
+  sel.innerHTML = GENRES_SPEC.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  if (GENRES_SPEC.includes(h.genero_especifico)) sel.value = h.genero_especifico;
+  $('#genre-err').textContent = '';
+  $('#genre-overlay').classList.add('show');
+}
+
+$('#genre-cancel').addEventListener('click',
+  () => $('#genre-overlay').classList.remove('show'));
+
+$('#genre-save').addEventListener('click', async () => {
+  const g = $('#genre-select').value.trim();
+  if (!g) { $('#genre-err').textContent = '✗ Elegí un género.'; return; }
+  const res = await api().apply_normalize_selected([{ path: genreDestino, new: g }]);
+  if (res.errors && res.errors.length) {
+    $('#genre-err').textContent = '✗ No se pudo escribir el tag (¿archivo movido?).';
+    return;
+  }
+  $('#genre-overlay').classList.remove('show');
+  await loadHistory();
 });
 
 /* Corregir ubicación (re-categorizar) de una entrada del historial */
