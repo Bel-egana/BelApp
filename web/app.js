@@ -20,13 +20,14 @@ function escapeHtml(s) {
 }
 
 /* Modal de confirmación con el estilo de la app (reemplaza window.confirm). */
-function confirmModal(title, message) {
+function confirmModal(title, message, okLabel) {
   return new Promise((resolve) => {
     const ov = $('#modal-overlay');
     const okBtn = $('#modal-ok');
     const cancelBtn = $('#modal-cancel');
     $('#modal-title').textContent = title;
     $('#modal-msg').textContent = message;
+    okBtn.textContent = okLabel || 'Aceptar';   // etiqueta opcional del botón OK
     ov.classList.add('show');
     function cleanup(val) {
       ov.classList.remove('show');
@@ -67,6 +68,20 @@ function flashMsg(text, ms = 5000) {
   if (text) setTimeout(() => { $('#load-msg').textContent = ''; }, ms);
 }
 
+/* Muestra "Analizando música…" solo si el índice de duplicados de la
+   biblioteca todavía no está en caché (primera carga tras abrir la app o
+   cambiar la carpeta base). Devuelve true si mostró el aviso. */
+async function avisarAnalisis() {
+  try {
+    if (!(await api().disk_index_listo())) {
+      flashMsg('🔍 Analizando tu música… (buscando duplicados en tu biblioteca)', 60000);
+      await new Promise((r) => setTimeout(r, 60));   // deja pintar el mensaje
+      return true;
+    }
+  } catch (e) { /* si falla el chequeo, seguimos sin aviso */ }
+  return false;
+}
+
 /* ── Vista Cargar ────────────────────────────────────────── */
 function addItems(newItems) {
   newItems.forEach((it) => {
@@ -99,15 +114,35 @@ function compararTamano(sa, sb) {
 }
 
 async function showDupInfo(it) {
+  // Compilado con varios tracks ya en la biblioteca: los listamos TODOS de una.
+  const all = it.dup_all || [];
+  if (it.type === 'album' && all.length) {
+    let msg = `Este compilado tiene ${all.length} track(s) que YA están en tu ` +
+      `biblioteca:\n\n`;
+    all.forEach((x) => {
+      const nombre = (x.nombre || '').replace(/\.[^.]+$/, '');
+      msg += `• ${nombre}\n   → ${x.destino}\n`;
+    });
+    msg += '\nSon coincidencias por nombre de archivo (puede ser el mismo tema ' +
+      'en otra compilación). Vos decidís y borrás a mano — la app no borra nada.';
+    await confirmModal('Ya en tu biblioteca', msg);
+    return;
+  }
+
   const d = it.dup_info || {};
-  let msg =
-    'Este ítem coincide con algo que YA ordenaste:\n\n' +
-    `• Artista:  ${d.artista || '—'}\n` +
-    `• Track:  ${d.track || '—'}\n` +
-    `• Fecha:  ${d.fecha || '—'}\n` +
-    `• Género:  ${d.genero || '—'}\n` +
-    `• Sello:  ${d.sello || '—'}\n` +
-    `• Ubicación:  ${d.destino || '—'}\n`;
+  const enBiblio = d.origen === 'biblioteca' || !d.fecha;
+  let msg = enBiblio
+    ? 'Este track YA está en tu biblioteca (encontrado en disco):\n\n'
+    : 'Este ítem coincide con algo que YA ordenaste:\n\n';
+  if (!enBiblio) {
+    msg +=
+      `• Artista:  ${d.artista || '—'}\n` +
+      `• Track:  ${d.track || '—'}\n` +
+      `• Fecha:  ${d.fecha || '—'}\n` +
+      `• Género:  ${d.genero || '—'}\n` +
+      `• Sello:  ${d.sello || '—'}\n`;
+  }
+  msg += `• Ubicación:  ${d.destino || '—'}\n`;
 
   // Comparación de tamaño (calidad) entre el cargado y el ya ordenado.
   try {
@@ -117,18 +152,18 @@ async function showDupInfo(it) {
       const cmp = compararTamano(s.a, s.b);
       let reco;
       if (cmp === 'igual') reco = 'prácticamente el mismo tamaño (probablemente idéntico) — cualquiera sirve';
-      else if (cmp === 'a') reco = 'el que cargaste es MÁS GRANDE → conviene quedarte con este y borrar el del historial';
-      else reco = 'el del historial es MÁS GRANDE → conviene quedarte con ese y borrar el que cargaste';
+      else if (cmp === 'a') reco = 'el que cargaste es MÁS GRANDE → conviene quedarte con este y borrar el que ya tenés';
+      else reco = 'el que ya tenés es MÁS GRANDE → conviene quedarte con ese y borrar el que cargaste';
       msg += `\n📊 Calidad (por tamaño):\n` +
         `   • Este (cargado):  ${mb(s.a)}\n` +
-        `   • En historial:  ${mb(s.b)}\n` +
+        `   • El que ya tenés:  ${mb(s.b)}\n` +
         `   → ${reco}\n`;
     }
   } catch (e) { /* si falla, seguimos sin la comparación */ }
 
   msg += '\nCoincide por nombre de archivo: puede ser el mismo tema en otra ' +
     'compilación. (Vos decidís y borrás a mano — la app no borra nada.)';
-  confirmModal('Ya en historial', msg);
+  confirmModal('Ya en tu biblioteca', msg);
 }
 
 function renderLoadTable() {
@@ -138,7 +173,7 @@ function renderLoadTable() {
 
   state.items.forEach((it) => {
     if (it.is_dup) dups++;
-    const tagsTxt = it.is_dup ? '⚠ YA EN HISTORIAL'
+    const tagsTxt = it.is_dup ? '⚠ YA EN BIBLIOTECA'
       : (it.has_id3 ? '✓ tags ID3' : '—');
     const tagsCls = it.is_dup ? 't-dup' : (it.has_id3 ? 't-ok' : 'muted');
     const nameCls = it.type === 'album' ? 't-album' : '';
@@ -169,7 +204,7 @@ function renderLoadTable() {
   if (t) parts.push(`${t} track${t > 1 ? 's' : ''}`);
   if (a) parts.push(`${a} album${a > 1 ? 's' : ''}`);
   let txt = parts.length ? parts.join(', ') : 'Ningún ítem cargado';
-  if (dups) txt += `   ·   ⚠ ${dups} ya en tu historial — quitalos para continuar`;
+  if (dups) txt += `   ·   ⚠ ${dups} ya en tu biblioteca — quitalos para continuar`;
   $('#load-count').textContent = txt;
   $('#btn-remove-dups').style.display = dups ? '' : 'none';
   $('#btn-continue').disabled = state.items.length === 0 || dups > 0;
@@ -200,17 +235,24 @@ $('#btn-get-token').addEventListener('click', () => api().open_token_page());
 $('#btn-add-tracks').addEventListener('click', async () => {
   const paths = await api().pick_tracks();
   if (!paths.length) return;
+  const analizando = await avisarAnalisis();
   const res = await api().load_tracks(paths, itemPaths(), state.items.length);
+  if (analizando) flashMsg('');
   addItems(res.items);
   loadSummary(res);
 });
 
 $('#btn-add-album').addEventListener('click', async () => {
-  const p = await api().pick_folder();
-  if (!p) return;
-  const res = await api().load_album_folder(p, itemPaths(), state.items.length);
-  if (res.error) { flashMsg('✗ ' + res.error); return; }
-  addItems([res.item]);
+  const paths = await api().pick_folders();
+  if (!paths.length) return;
+  const analizando = await avisarAnalisis();
+  const res = await api().load_album_folders(paths, itemPaths(), state.items.length);
+  if (analizando) flashMsg('');
+  addItems(res.items);
+  loadSummary(res);
+  if (res.no_audio && res.no_audio.length) {
+    flashMsg(`Cargados ${res.items.length}. ⚠ ${res.no_audio.length} carpeta(s) sin audio se saltearon.`);
+  }
 });
 
 $('#btn-scan').addEventListener('click', async () => {
@@ -218,7 +260,9 @@ $('#btn-scan').addEventListener('click', async () => {
   if (!p) return;
   // Escanea la carpeta: tracks sueltos + subcarpetas de álbum, salteando las
   // carpetas con nombre de año (ya organizadas).
+  const analizando = await avisarAnalisis();
   const res = await api().scan_folder(p, itemPaths(), state.items.length, true);
+  if (analizando) flashMsg('');
   if (res.error) { flashMsg('✗ ' + res.error); return; }
   if (!res.items.length) {
     let msg;
@@ -249,14 +293,129 @@ let normRows = [];   // estado de la revisión de normalización
 $('#btn-normalize').addEventListener('click', async () => {
   const folder = await api().pick_folder();
   if (!folder) return;
-  flashMsg('⏳ Analizando la carpeta…');
+  flashMsg('⏳ Analizando la carpeta… puede tardar. No cierres la app.', 600000);
   const r = await api().review_folder_genres(folder);
+  flashMsg('');   // terminó
   if (r.error) { await confirmModal('Normalizar géneros', '✗ ' + r.error); return; }
   if (!r.total) {
     await confirmModal('Normalizar géneros', 'No hay tracks de audio en esa carpeta.');
     return;
   }
   openNormReview(r);
+});
+
+$('#btn-dups').addEventListener('click', async () => {
+  const folder = await api().pick_folder();
+  if (!folder) return;
+  flashMsg('⏳ Buscando duplicados… puede tardar (escanea la carpeta y tu biblioteca). No cierres la app.', 600000);
+  const r = await api().buscar_duplicados_carpeta(folder);
+  flashMsg('');
+  if (r.error) { await confirmModal('Buscar duplicados', '✗ ' + r.error); return; }
+  if (!r.grupos) {
+    await confirmModal('Buscar duplicados', '✅ No se encontraron duplicados en esa carpeta.');
+    return;
+  }
+  const abrir = await confirmModal('Buscar duplicados',
+    `🔍 Se encontraron ${r.grupos} grupo(s) de tracks duplicados.\n\n` +
+    `El detalle (rutas + tamaño de cada copia + recomendación de cuál conservar) ` +
+    `está en el archivo "${r.report_file}" dentro de esa carpeta.\n\n` +
+    '🛡️ BelApp NO borra nada — vos revisás y borrás a mano lo que quieras.',
+    '📂 Abrir carpeta');
+  if (abrir) api().open_in_explorer(r.folder);
+});
+
+/* ── Completar años de una carpeta (en lote) ─────────────── */
+let yearRows = [];
+
+function updateYearCount() {
+  const conAnio = yearRows.filter((x) => /^(19|20)\d\d$/.test(x.inp.value.trim())).length;
+  const tildados = yearRows.filter((x) => x.chk.checked).length;
+  $('#year-count').textContent = `${conAnio} con año válido · ${tildados} tildados`;
+}
+
+function applyYearFilter() {
+  const solo = $('#year-only-empty').checked;
+  yearRows.forEach((x) => { x.row.hidden = solo && x.current !== ''; });
+}
+$('#year-only-empty').addEventListener('change', applyYearFilter);
+
+function openYearReview(r) {
+  const list = $('#year-list');
+  list.innerHTML = '';
+  yearRows = [];
+  $('#year-sub').textContent =
+    `${r.total} tracks · ${r.sin_anio} sin año. Escribí el año en cada fila, o tildá varios ` +
+    'que compartan año y usá "Asignar a tildados". Solo toca el tag, NO mueve archivos.';
+  r.tracks.forEach((t) => {
+    const row = document.createElement('div');
+    row.className = 'norm-row';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.addEventListener('change', updateYearCount);
+    const name = document.createElement('div');
+    name.className = 'nr-name';
+    name.textContent = normBase(t.path);
+    name.title = t.path;
+    const old = document.createElement('div');
+    old.className = 'nr-old';
+    old.textContent = (t.current || '(sin año)') + '  →';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'año';
+    inp.style.width = '70px';
+    inp.value = t.current || t.suggested || '';   // pre-carga el actual o el sugerido
+    inp.addEventListener('input', updateYearCount);
+    row.append(chk, name, old, inp);
+    list.appendChild(row);
+    yearRows.push({ path: t.path, chk, inp, current: t.current || '', row });
+  });
+  $('#year-only-empty').checked = true;   // arranca mostrando solo los sin año
+  applyYearFilter();
+  updateYearCount();
+  $('#year-overlay').classList.add('show');
+}
+
+$('#btn-years').addEventListener('click', async () => {
+  const folder = await api().pick_folder();
+  if (!folder) return;
+  flashMsg('⏳ Analizando la carpeta… no cierres la app.', 600000);
+  const r = await api().review_folder_years(folder);
+  flashMsg('');
+  if (r.error) { await confirmModal('Completar años', '✗ ' + r.error); return; }
+  if (!r.total) { await confirmModal('Completar años', 'No hay tracks de audio en esa carpeta.'); return; }
+  openYearReview(r);
+});
+
+$('#year-all').addEventListener('click', () => {
+  yearRows.forEach((x) => { if (!x.row.hidden) x.chk.checked = true; });
+  updateYearCount();
+});
+$('#year-none').addEventListener('click', () => {
+  yearRows.forEach((x) => { if (!x.row.hidden) x.chk.checked = false; });
+  updateYearCount();
+});
+$('#year-assign').addEventListener('click', () => {
+  const y = $('#year-bulk').value.trim();
+  if (!/^(19|20)\d\d$/.test(y)) { flashMsg('✗ Escribí un año válido (ej. 2023)'); return; }
+  let n = 0;
+  yearRows.forEach((x) => {
+    if (x.chk.checked) { x.inp.value = y; x.chk.checked = false; n++; }
+  });
+  flashMsg(n ? `✓ Año ${y} asignado a ${n} track(s)` : '✗ Tildá primero los tracks');
+  updateYearCount();
+});
+$('#year-cancel').addEventListener('click', () => $('#year-overlay').classList.remove('show'));
+$('#year-apply').addEventListener('click', async () => {
+  const items = yearRows
+    .filter((x) => /^(19|20)\d\d$/.test(x.inp.value.trim()) && x.inp.value.trim() !== x.current)
+    .map((x) => ({ path: x.path, year: x.inp.value.trim() }));
+  if (!items.length) { flashMsg('✗ No hay años nuevos para aplicar'); return; }
+  $('#year-overlay').classList.remove('show');
+  flashMsg('⏳ Escribiendo años… no cierres la app.', 600000);
+  const res = await api().apply_years_selected(items);
+  flashMsg('');
+  const errTxt = (res.errors && res.errors.length) ? `\n\n⚠ ${res.errors.length} con error.` : '';
+  await confirmModal('Listo ✓', `${res.applied} años actualizados.${errTxt}`);
 });
 
 function normBase(p) { return String(p).split(/[\\/]/).pop(); }
@@ -322,18 +481,27 @@ function openNormReview(r) {
 
     row.append(chk, name, old, sel);
     list.appendChild(row);
-    normRows.push({ path: t.path, chk, sel });
+    normRows.push({ path: t.path, chk, sel, current: t.current || '', row });
   });
+  $('#norm-only-empty').checked = false;   // arranca sin filtro
+  applyNormFilter();
   updateNormCount();
   $('#norm-overlay').classList.add('show');
 }
 
+/* Filtro "Solo sin género": muestra solo las filas sin género actual. */
+function applyNormFilter() {
+  const soloVacios = $('#norm-only-empty').checked;
+  normRows.forEach((x) => { x.row.hidden = soloVacios && x.current !== ''; });
+}
+$('#norm-only-empty').addEventListener('change', applyNormFilter);
+
 $('#norm-all').addEventListener('click', () => {
-  normRows.forEach((x) => { x.chk.checked = true; });
+  normRows.forEach((x) => { if (!x.row.hidden) x.chk.checked = true; });   // solo las visibles
   updateNormCount();
 });
 $('#norm-none').addEventListener('click', () => {
-  normRows.forEach((x) => { x.chk.checked = false; });
+  normRows.forEach((x) => { if (!x.row.hidden) x.chk.checked = false; });
   updateNormCount();
 });
 $('#norm-assign').addEventListener('click', () => {
@@ -353,33 +521,120 @@ $('#norm-apply').addEventListener('click', async () => {
     .map((x) => ({ path: x.path, new: x.sel.value }));
   if (!items.length) return;
   $('#norm-overlay').classList.remove('show');
-  flashMsg('⏳ Aplicando cambios…');
+  flashMsg('⏳ Aplicando cambios… no cierres la app.', 600000);
   const res = await api().apply_normalize_selected(items);
+  flashMsg('');   // terminó
   const errTxt = (res.errors && res.errors.length)
     ? `\n\n⚠ ${res.errors.length} con error (no se pudieron escribir).` : '';
   await confirmModal('Listo ✓',
     `${res.applied} géneros actualizados.${errTxt}\n\n` +
     'En Traktor: re-importá/actualizá la carpeta para ver los tags nuevos.');
+  await loadHistory();   // refleja los géneros nuevos en el Historial y el contador
 });
 
-$('#btn-playlists').addEventListener('click', async () => {
+$('#btn-playlists').addEventListener('click', () => {
   const base = $('#base-path').value.trim();
-  if (!base) { await confirmModal('Generar playlists', '✗ Falta la carpeta base de música.'); return; }
-  const seguir = await confirmModal('Generar playlists para Traktor',
-    'Leo los tags de tu biblioteca y armo una playlist .m3u8 por Género + Año.\n\n' +
-    'Después elegís en qué carpeta guardarlas.\n\n' +
-    'Ojo: escanear la biblioteca entera tarda unos minutos. NO mueve ni copia audio (es por referencia).');
-  if (!seguir) return;
-  const out = await api().pick_folder();
-  if (!out) return;
-  flashMsg('⏳ Generando playlists… puede tardar unos minutos');
-  const res = await api().generate_playlists(base, out);
-  if (res.error) { await confirmModal('Generar playlists', '✗ ' + res.error); return; }
-  await confirmModal('Playlists listas ✓',
-    `${res.playlists} playlists creadas (${res.tracks} tracks) en:\n${res.folder}\n\n` +
-    `Se saltearon ${res.sin_tag} tracks sin género/año.\n\n` +
-    'En Traktor: click derecho en "Playlists" → Import Playlist → elegí un .m3u8.');
+  if (!base) { confirmModal('Generar playlists', '✗ Falta la carpeta base de música.'); return; }
+  // Poblar el selector de género: "Todos" + los géneros específicos.
+  const sel = $('#pl-genre');
+  sel.innerHTML = '';
+  const todos = document.createElement('option');
+  todos.value = ''; todos.textContent = 'Todos los géneros';
+  sel.appendChild(todos);
+  GENRES_SPEC.forEach((g) => {
+    const o = document.createElement('option');
+    o.value = g; o.textContent = g;
+    sel.appendChild(o);
+  });
+  $('#pl-year').value = '';
+  $('#pl-source').value = '';
+  $('#pl-dest').value = '';
+  $('#pl-overlay').classList.add('show');
 });
+$('#pl-cancel').addEventListener('click', () => $('#pl-overlay').classList.remove('show'));
+
+$('#pl-pick-source').addEventListener('click', async () => {
+  const p = await api().pick_folder();
+  if (p) $('#pl-source').value = p;
+});
+$('#pl-pick-dest').addEventListener('click', async () => {
+  const p = await api().pick_folder();
+  if (p) $('#pl-dest').value = p;
+});
+
+$('#pl-go').addEventListener('click', async () => {
+  const base = $('#base-path').value.trim();
+  const source = $('#pl-source').value.trim() || base;   // vacío = toda la biblioteca
+  const dest = $('#pl-dest').value.trim();
+  const genre = $('#pl-genre').value;      // '' = todos
+  const year = $('#pl-year').value.trim();  // '' = todos
+  if (!dest) { flashMsg('✗ Elegí la carpeta "Guardar en"'); return; }
+  $('#pl-overlay').classList.remove('show');
+  // Mensaje persistente (10 min): se mantiene TODO el análisis y se saca al terminar.
+  flashMsg('⏳ Analizando la carpeta y generando playlists… puede tardar varios minutos. No cierres la app.', 600000);
+  const res = await api().generate_playlists(source, dest, genre, year);
+  flashMsg('');   // terminó: saca el "analizando"
+  if (res.error) { await confirmModal('Generar playlists', '✗ ' + res.error); return; }
+  let msg = '';
+  if (res.ya_fecha) {
+    msg += `⚠ Ojo: ya habías generado esto el ${res.ya_fecha} — se actualizó (se sobreescribieron los archivos).\n\n`;
+  }
+  msg += `${res.playlists} playlists creadas (${res.tracks} tracks) en:\n${res.folder}\n\n`;
+  if (res.sin_tag) {
+    msg += `⚠ ${res.sin_tag} tracks quedaron AFUERA (les falta género o año). ` +
+           `Cuáles → mirá el archivo "${res.sin_tag_file}" en esa carpeta.\n\n`;
+  } else {
+    msg += 'Todos los tracks entraron (ninguno sin tag). ✅\n\n';
+  }
+  msg += `${res.playlists} playlists en ${res.generos} carpeta(s) de género ` +
+    `(cada archivo nombrado por año, ej. 2013.nml).\n\n` +
+    '🎧 En Traktor: creá una carpeta con el nombre del género → click derecho → ' +
+    '"Import Playlist Directory" → apuntá a la subcarpeta de ese género. Te entran ' +
+    'todas las playlists por año de una. 🌳';
+  const abrir = await confirmModal('Playlists listas ✓', msg, '📂 Abrir carpeta');
+  if (abrir) api().open_in_explorer(res.folder);
+});
+
+/* Pestañas del Historial: música ordenada / playlists generadas */
+$('#htab-tracks').addEventListener('click', () => switchHistTab('tracks'));
+$('#htab-playlists').addEventListener('click', () => switchHistTab('playlists'));
+
+function switchHistTab(which) {
+  const esTracks = which === 'tracks';
+  $('#htab-tracks').classList.toggle('active', esTracks);
+  $('#htab-playlists').classList.toggle('active', !esTracks);
+  $('#hist-tracks').hidden = !esTracks;
+  $('#hist-playlists').hidden = esTracks;
+  if (!esTracks) renderPlaylistsTab();
+}
+
+async function renderPlaylistsTab() {
+  const log = await api().get_playlists_log();
+  const tb = $('#tbl-pl tbody');
+  tb.innerHTML = '';
+  (log || []).slice().reverse().forEach((e) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${escapeHtml(e.fecha || '')}</td>` +
+      `<td>${escapeHtml(e.genre || 'Todos los géneros')}</td>` +
+      `<td>${escapeHtml(e.year || 'Todos')}</td>` +
+      `<td>${e.playlists || 0}</td>` +
+      `<td>${e.tracks || 0}</td>` +
+      `<td>${e.sin_tag ? '⚠ ' + e.sin_tag : '—'}</td>` +
+      `<td class="muted">${escapeHtml(e.dest || '')}</td>`;
+    if (e.dest) {
+      tr.style.cursor = 'pointer';
+      tr.title = 'Doble-click para abrir la carpeta';
+      tr.addEventListener('dblclick', () => api().open_in_explorer(e.dest));
+    }
+    tb.appendChild(tr);
+  });
+  const hay = log && log.length;
+  $('#pl-empty').style.display = hay ? 'none' : 'block';
+  $('#pl-count').textContent = hay
+    ? `${log.length} generación${log.length !== 1 ? 'es' : ''}`
+    : 'Sin playlists generadas aún';
+}
 
 $('#btn-continue').addEventListener('click', async () => {
   if (state.items.some((i) => i.is_dup)) {   // guarda: el botón ya está gateado
@@ -483,7 +738,8 @@ function loadItem(idx) {
   const it = state.items[idx];
 
   const tipo = it.type === 'album' ? '📁 EP/Album' : '🎵 Track';
-  const dup = it.is_dup ? `    ⚠ YA EN HISTORIAL (${it.dup_fecha})` : '';
+  const dup = it.is_dup
+    ? `    ⚠ YA EN BIBLIOTECA${it.dup_fecha ? ` (${it.dup_fecha})` : ''}` : '';
   const h2 = $('#cur-title');
   h2.textContent = `${tipo}: ${it.name}${dup}`;
   h2.style.color = it.is_dup ? 'var(--warning)' : 'var(--accent)';
@@ -789,7 +1045,7 @@ async function moveConfirmed() {
 
   const dups = ready.filter((i) => i.is_dup).length;
   let msg = `¿Mover ${ready.length} ítem${ready.length > 1 ? 's' : ''} ahora?`;
-  if (dups) msg += `\n\n⚠ ${dups} ya figura${dups > 1 ? 'n' : ''} en tu historial.`;
+  if (dups) msg += `\n\n⚠ ${dups} ya figura${dups > 1 ? 'n' : ''} en tu biblioteca.`;
   if (yaExisten.length) {
     const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
     const lineas = yaExisten.slice(0, 6).map((d) => {
@@ -843,6 +1099,12 @@ function renderMoveResult(res) {
   $('#btn-undo').disabled = !movedAny;
   lastOpenDir = res.open_dir || '';
   $('#btn-open-folder').disabled = !movedAny || !lastOpenDir;
+
+  if (res.playlists_updated && res.playlists_updated.length) {
+    const detalle = res.playlists_updated
+      .map((p) => `${p.name} (+${p.added})`).join(', ');
+    flashMsg(`🎵 Playlists actualizadas: ${detalle}. Reimportá solo esas en Traktor.`, 600000);
+  }
 }
 
 let lastOpenDir = '';
@@ -887,14 +1149,68 @@ let ctxDestino = '';
 
 async function loadHistory() {
   history = await api().get_history();
+  // Backfill del género del tag (una sola vez) para filtrar/mostrar por tag.
+  try {
+    if (await api().history_needs_genre_backfill()) {
+      flashMsg('⏳ Actualizando géneros del historial… (solo esta vez, puede tardar)', 600000);
+      await api().backfill_history_genres();
+      flashMsg('');
+      history = await api().get_history();
+    }
+  } catch (e) { /* si falla, seguimos con lo que haya */ }
   populateGenreFilter();
+  await updateRepairButton();
   renderHistory();
 }
+
+// Muestra el botón "Reparar rutas movidas" con la cantidad de entradas obsoletas.
+async function updateRepairButton() {
+  const btn = $('#btn-hist-repair');
+  if (!btn) return;
+  try {
+    const n = await api().count_moved_history();
+    btn.hidden = n === 0;
+    btn.textContent = `🔧 Reparar rutas movidas (${n})`;
+  } catch (e) { btn.hidden = true; }
+}
+
+$('#btn-hist-repair').addEventListener('click', async () => {
+  const n = await api().count_moved_history();
+  if (!n) { await confirmModal('Reparar rutas movidas', 'No hay rutas movidas. ✅'); return; }
+  const ok = await confirmModal('Reparar rutas movidas',
+    `${n} entradas tienen el archivo movido o renombrado. Voy a buscarlos en tu ` +
+    `biblioteca y actualizar el historial (ruta + género real + sello/año). ` +
+    'NO toco los archivos.', 'Reparar');
+  if (!ok) return;
+  flashMsg('⏳ Buscando archivos movidos… puede tardar (escanea la biblioteca).', 600000);
+  const r = await api().repair_moved_history();
+  flashMsg('');
+  if (r.error) { await confirmModal('Reparar rutas movidas', '✗ ' + r.error); return; }
+  await loadHistory();
+  const noEnc = r.no_encontradas
+    ? `\n\n⚠ ${r.no_encontradas} no se encontraron` +
+      (r.txt_file ? ` (están en: ${r.txt_file}).` : '.')
+    : '';
+  await confirmModal('Listo ✓', `🔧 ${r.reparadas} rutas reparadas.${noEnc}`);
+
+  if (r.no_encontradas > 0) {
+    const borrar = await confirmModal('Limpiar huérfanas',
+      `Quedaron ${r.no_encontradas} entradas cuyo archivo no está en disco ` +
+      '(se movieron demasiado o se borraron). ¿Las quito del historial? ' +
+      'NO toca la música, solo limpia esos registros viejos.', 'Quitar del historial');
+    if (borrar) {
+      const d = await api().delete_moved_history();
+      await loadHistory();
+      await confirmModal('Listo ✓', `🗑 ${d.removed} registros huérfanos quitados del historial.`);
+    }
+  }
+});
 
 function populateGenreFilter() {
   const sel = $('#hist-genre');
   const cur = sel.value;
-  const genres = [...new Set(history.map((h) => h.genero).filter(Boolean))].sort();
+  const genres = [...new Set(history
+    .map((h) => h.genero_especifico || h.genero).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">Todos los géneros</option>' +
     genres.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
   sel.value = cur;   // preservar la selección si todavía existe
@@ -908,9 +1224,10 @@ function historyFiltered() {
   const flt = $('#hist-search').value.trim().toLowerCase();
   const gen = $('#hist-genre').value;
   return history.slice().reverse().filter((h) => {
-    if (gen && (h.genero || '') !== gen) return false;
+    const g = h.genero_especifico || h.genero || '';
+    if (gen && g !== gen) return false;
     if (!flt) return true;
-    const blob = [h.artista, h.track, h.genero, h.sello, h.destino]
+    const blob = [h.artista, h.track, g, h.sello, h.destino]
       .join(' ').toLowerCase();
     return blob.includes(flt);
   });
@@ -928,7 +1245,8 @@ function renderHistory() {
   tbody.innerHTML = '';
   rows.slice(desde, desde + HIST_PAGE_SIZE).forEach((h) => {
     const tr = document.createElement('tr');
-    [h.fecha, h.artista, h.track, h.genero, h.sello, h['año'], h.destino]
+    [h.fecha, h.artista, h.track, (h.genero_especifico || h.genero),
+     h.sello, h['año'], h.destino]
       .forEach((v) => {
         const td = document.createElement('td');
         td.textContent = v || '';
@@ -982,6 +1300,7 @@ $('#ctx-menu').addEventListener('click', async (e) => {
   const act = e.target.dataset.act;
   if (!act || !ctxDestino) return;
   if (act === 'open') api().open_in_explorer(ctxDestino);
+  else if (act === 'genre') openGenreModal(ctxDestino);
   else if (act === 'edit') openRecatModal(ctxDestino);
   else if (act === 'copy') navigator.clipboard.writeText(ctxDestino);
   else if (act === 'del') {
@@ -991,6 +1310,38 @@ $('#ctx-menu').addEventListener('click', async (e) => {
       await loadHistory();
     }
   }
+});
+
+/* Modificar SOLO el género (tag) de una entrada del historial. No mueve nada. */
+let genreDestino = '';
+
+function openGenreModal(destino) {
+  const h = history.find((x) => x.destino === destino);
+  if (!h) return;
+  genreDestino = destino;
+  $('#genre-info').textContent = `${h.artista || '—'} — ${h.track || ''}`;
+  $('#genre-cur').textContent =
+    `Género actual: ${h.genero_especifico || h.genero || '(sin género)'}`;
+  const sel = $('#genre-select');
+  sel.innerHTML = GENRES_SPEC.map((g) => `<option>${escapeHtml(g)}</option>`).join('');
+  if (GENRES_SPEC.includes(h.genero_especifico)) sel.value = h.genero_especifico;
+  $('#genre-err').textContent = '';
+  $('#genre-overlay').classList.add('show');
+}
+
+$('#genre-cancel').addEventListener('click',
+  () => $('#genre-overlay').classList.remove('show'));
+
+$('#genre-save').addEventListener('click', async () => {
+  const g = $('#genre-select').value.trim();
+  if (!g) { $('#genre-err').textContent = '✗ Elegí un género.'; return; }
+  const res = await api().apply_normalize_selected([{ path: genreDestino, new: g }]);
+  if (res.errors && res.errors.length) {
+    $('#genre-err').textContent = '✗ No se pudo escribir el tag (¿archivo movido?).';
+    return;
+  }
+  $('#genre-overlay').classList.remove('show');
+  await loadHistory();
 });
 
 /* Corregir ubicación (re-categorizar) de una entrada del historial */
@@ -1055,28 +1406,36 @@ document.getElementById('nav-historial').addEventListener('click', loadHistory);
 
 /* ── Guía / tour (coach marks) ───────────────────────────── */
 const TOUR = [
-  { sel: null, title: '¡Hola! Soy BelApp 🎧',
-    text: 'Organizo tu música: busco metadata en Discogs, ordeno por Género/Sello/Año y armo playlists para Traktor. Te muestro lo básico en 30 segundos.' },
-  { sel: 'nav', title: 'Las 4 pantallas',
+  { view: 'cargar', sel: null, title: '¡Hola! Soy BelApp 🎧',
+    text: 'Organizo tu música: busco metadata en Discogs, ordeno por Género/Sello/Año y armo playlists para Traktor. Te muestro las 4 pantallas en un minuto.' },
+  { view: 'cargar', sel: 'nav', title: 'Las 4 pantallas',
     text: 'El flujo es: Cargar → Buscar & Confirmar → Resultado → Historial. Te movés entre ellas desde este menú.' },
-  { sel: '#cfg-base', title: 'Tu carpeta de música',
-    text: 'Con "Cambiar" elegís tu carpeta base: ahí se ordenan los tracks en Género/Sello/Año.' },
-  { sel: '#cfg-token', title: 'Tu token de Discogs',
+  { view: 'cargar', sel: '#cfg-base', title: '1 · Cargar — tu carpeta',
+    text: 'Con "Cambiar" elegís tu carpeta base de música: ahí se ordenan los tracks en Género/Sello/Año.' },
+  { view: 'cargar', sel: '#cfg-token', title: 'Tu token de Discogs',
     text: 'Con "Obtener token" generás uno gratis y lo pegás acá. Se usa para buscar la metadata de cada track.' },
-  { sel: '.load-actions', title: 'Cargar música',
+  { view: 'cargar', sel: '.load-actions', title: 'Cargar música',
     text: 'Sumá tracks sueltos, una carpeta de EP/Album, o escaneá una carpeta entera (saltea las carpetas de año ya ordenadas).' },
-  { sel: '.tools-row', title: 'Mantenimiento',
+  { view: 'cargar', sel: '.tools-row', title: 'Mantenimiento',
     text: 'Normalizá los géneros de una carpeta (con revisión track por track) o generá las playlists .m3u8 para Traktor.' },
-  { sel: '#btn-continue', title: 'Seguir el flujo',
-    text: 'Con ítems cargados, "Continuar" te lleva a buscarlos en Discogs, validar y confirmar antes de mover.' },
-  { sel: null, title: '¡Listo! 🎉',
-    text: 'Eso es lo esencial. Podés volver a ver esta guía cuando quieras con el botón "❓ Guía", arriba a la derecha.' },
+  { view: 'cargar', sel: '#btn-continue', title: 'Seguir el flujo',
+    text: 'Con ítems cargados, "Continuar" te lleva a la siguiente pantalla.' },
+  { view: 'buscar', sel: '#nav-buscar', title: '2 · Buscar & Confirmar',
+    text: 'Acá cada track se busca solo en Discogs. Elegís el resultado correcto, completás Género/Sello/Año y confirmás. Cuando estén todos → ▶ Mover.' },
+  { view: 'resultado', sel: '#nav-resultado', title: '3 · Resultado',
+    text: 'Acá ves el log de todo lo que se movió. Podés "Deshacer" el último movimiento o abrir la carpeta destino.' },
+  { view: 'historial', sel: '#nav-historial', title: '4 · Historial',
+    text: 'Acá queda el registro de todo lo ordenado: buscás, filtrás por género, navegás con paginación y exportás a Excel. Doble clic en una fila abre la carpeta.' },
+  { view: 'cargar', sel: null, title: '¡Listo! 🎉',
+    text: 'Eso es todo. Para la referencia completa en texto (o para ver esto de nuevo) tocá "❓ Guía", arriba a la derecha.' },
 ];
 let tourIdx = 0;
 
 function tourShow(i) {
   tourIdx = Math.max(0, Math.min(i, TOUR.length - 1));
   const step = TOUR[tourIdx];
+  showView(step.view || 'cargar');
+  if (step.view === 'historial') { try { loadHistory(); } catch (e) {} }
   const spot = $('#tour-spot');
   const bubble = $('#tour-bubble');
   $('#tour-overlay').classList.add('show');
@@ -1096,7 +1455,7 @@ function tourShow(i) {
     spot.style.width = (r.width + pad * 2) + 'px';
     spot.style.height = (r.height + pad * 2) + 'px';
     const bh = bubble.offsetHeight || 170;
-    const bx = Math.max(16, Math.min(r.left, window.innerWidth - 316));
+    const bx = Math.max(16, Math.min(r.left, window.innerWidth - 346));
     let by;
     if (r.bottom + 12 + bh < window.innerHeight) by = r.bottom + 12;
     else if (r.top - 12 - bh > 8) by = r.top - 12 - bh;
@@ -1146,6 +1505,14 @@ window.addEventListener('pywebviewready', async () => {
     $('#status').textContent =
       'Conectado · Carpeta base: ' + cfg.base_path +
       (cfg.discogs_token ? ' · Token ✓' : ' · Sin token');
+    // Estado del auto-append de playlists al ordenar.
+    try {
+      const c = $('#chk-pl-auto');
+      if (c) {
+        c.checked = await api().get_playlists_auto();
+        c.addEventListener('change', () => api().set_playlists_auto(c.checked));
+      }
+    } catch (e) { /* si falla, queda el default del HTML */ }
     // Guía de bienvenida: solo la primera vez.
     if (!(await api().tour_visto())) {
       showView('cargar');

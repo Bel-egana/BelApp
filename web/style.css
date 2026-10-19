@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }   /* que 'hidden' gane siempre (aunque haya display inline) */
 
 html, body {
   height: 100%;
@@ -204,16 +205,16 @@ tbody tr:hover { background: var(--surface2); }
   pointer-events: none;
 }
 #tour-bubble {
-  position: fixed; width: 300px; max-width: 82vw; padding: 16px 18px;
+  position: fixed; width: 330px; max-width: 88vw; padding: 16px 18px;
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 12px; box-shadow: 0 10px 34px rgba(0, 0, 0, .55); z-index: 301;
   transition: left .25s ease, top .25s ease;
 }
 #tour-bubble h4 { margin: 0 0 6px; color: var(--accent); font-size: 14px; font-weight: 600; }
 #tour-bubble p { margin: 0 0 14px; color: #cfcfd6; font-size: 13px; line-height: 1.55; }
-#tour-nav { display: flex; align-items: center; gap: 8px; }
-#tour-step { color: var(--muted); font-size: 12px; margin-right: auto; }
-#tour-nav .btn { padding: 5px 12px; font-size: 12px; }
+#tour-nav { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+#tour-step { color: var(--muted); font-size: 12px; margin-right: auto; white-space: nowrap; }
+#tour-nav .btn { padding: 5px 10px; font-size: 12px; white-space: nowrap; flex: 0 0 auto; }
 
 /* ── Guía en texto (ventana) ─────────────────────────────── */
 .guide-modal { width: 720px; max-width: 92vw; }
@@ -246,6 +247,7 @@ tbody tr:hover { background: var(--surface2); }
   padding: 6px 8px; border-radius: 8px; font-size: 12.5px;
   cursor: pointer; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis;
+  flex: 0 0 auto;   /* no encoger: con muchos ítems la lista scrollea, no se enciman */
 }
 #item-list li:hover { background: var(--surface2); }
 #item-list li.cur { background: var(--surface2); outline: 1px solid var(--border); }
@@ -317,6 +319,14 @@ tbody tr:hover { background: var(--surface2); }
 
 /* ── Vista Historial ─────────────────────────────────────── */
 .hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.hist-tabs { display: flex; gap: 6px; margin-left: 16px; }
+.htab {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.htab:hover { color: var(--text); }
+.htab.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.hist-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
 #hist-search { flex: 1; max-width: 360px; }
 #hist-genre { min-width: 190px; }
 #tbl-hist { table-layout: fixed; width: 100%; }
@@ -385,3 +395,15 @@ tbody tr:hover { background: var(--surface2); }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Checkbox "Actualizar playlists al ordenar" (Mantenimiento) */
+.pl-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.pl-auto input { cursor: pointer; }

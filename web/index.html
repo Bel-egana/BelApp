@@ -55,7 +55,7 @@
 
     <div class="load-actions">
       <button class="btn btn-accent" id="btn-add-tracks">+ Tracks sueltos</button>
-      <button class="btn btn-purple" id="btn-add-album">+ Carpeta EP / Album</button>
+      <button class="btn btn-purple" id="btn-add-album" title="Podés seleccionar varias carpetas a la vez (Ctrl o Shift + clic)">+ Carpetas EP / Album</button>
       <button class="btn btn-info" id="btn-scan">📂 Escanear carpeta</button>
       <span class="spacer"></span>
       <button class="btn btn-ghost danger" id="btn-remove-dups" style="display:none">🗑 Quitar duplicados</button>
@@ -65,6 +65,8 @@
     <div class="tools-row">
       <span class="muted small" style="margin:0">Mantenimiento:</span>
       <button class="btn btn-ghost" id="btn-normalize">🎛 Normalizar géneros de una carpeta</button>
+      <button class="btn btn-ghost" id="btn-dups">🔍 Buscar duplicados en una carpeta</button>
+      <button class="btn btn-ghost" id="btn-years">📅 Completar años de una carpeta</button>
       <button class="btn btn-ghost" id="btn-playlists">🎧 Generar playlists para Traktor</button>
     </div>
 
@@ -181,40 +183,73 @@
   <section id="view-historial" class="view">
     <div class="hist-head">
       <h1 style="margin:0">Historial</h1>
-      <input type="text" id="hist-search" spellcheck="false"
-             placeholder="Buscar por artista, track, sello…">
-      <select id="hist-genre"><option value="">Todos los géneros</option></select>
-      <span class="spacer"></span>
-      <button class="btn btn-info" id="btn-hist-csv">⬇ Exportar a Excel</button>
-      <button class="btn btn-ghost danger" id="btn-hist-clear">🗑 Limpiar</button>
+      <div class="hist-tabs">
+        <button class="htab active" id="htab-tracks">🎵 Música ordenada</button>
+        <button class="htab" id="htab-playlists">🎧 Playlists generadas</button>
+      </div>
     </div>
-    <p class="small muted" style="margin:8px 0">
-      Doble-click en una fila o click derecho para abrir la carpeta / copiar / eliminar.</p>
 
-    <div class="card table-card grow">
-      <table id="tbl-hist">
-        <thead>
-          <tr><th style="width:12%">Fecha</th><th style="width:16%">Artista</th>
-              <th style="width:20%">Track</th><th style="width:18%">Género</th>
-              <th style="width:14%">Sello</th><th style="width:6%">Año</th>
-              <th style="width:14%">Destino</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <p id="hist-empty" class="placeholder-note" style="padding:14px">Sin registros aún.</p>
+    <!-- Pestaña 1: música ordenada -->
+    <div id="hist-tracks" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="hist-toolbar">
+        <input type="text" id="hist-search" spellcheck="false"
+               placeholder="Buscar por artista, track, sello…">
+        <select id="hist-genre"><option value="">Todos los géneros</option></select>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost" id="btn-hist-repair" hidden
+                title="Relocaliza las entradas cuyo archivo se movió/renombró: actualiza la ruta y el género real. No toca los archivos.">🔧 Reparar rutas movidas</button>
+        <button class="btn btn-info" id="btn-hist-csv">⬇ Exportar a Excel</button>
+        <button class="btn btn-ghost danger" id="btn-hist-clear">🗑 Limpiar</button>
+      </div>
+      <p class="small muted" style="margin:8px 0">
+        Doble-click en una fila o click derecho para abrir la carpeta / copiar / eliminar.</p>
+      <div class="card table-card grow">
+        <table id="tbl-hist">
+          <thead>
+            <tr><th style="width:12%">Fecha</th><th style="width:16%">Artista</th>
+                <th style="width:20%">Track</th><th style="width:18%">Género</th>
+                <th style="width:14%">Sello</th><th style="width:6%">Año</th>
+                <th style="width:14%">Destino</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p id="hist-empty" class="placeholder-note" style="padding:14px">Sin registros aún.</p>
+      </div>
+      <div class="bottom-bar">
+        <span id="hist-count" class="muted small" style="margin:0"></span>
+        <span id="hist-pager" class="hist-pager" style="display:none">
+          <button class="btn btn-ghost" id="hist-prev">← Anterior</button>
+          <span id="hist-page-info" class="muted small"></span>
+          <button class="btn btn-ghost" id="hist-next">Siguiente →</button>
+        </span>
+      </div>
     </div>
-    <div class="bottom-bar">
-      <span id="hist-count" class="muted small" style="margin:0"></span>
-      <span id="hist-pager" class="hist-pager" style="display:none">
-        <button class="btn btn-ghost" id="hist-prev">← Anterior</button>
-        <span id="hist-page-info" class="muted small"></span>
-        <button class="btn btn-ghost" id="hist-next">Siguiente →</button>
-      </span>
+
+    <!-- Pestaña 2: playlists generadas -->
+    <div id="hist-playlists" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <p class="small muted" style="margin:8px 0">
+        Playlists que armaste para Traktor. Doble-click en una fila para abrir su carpeta.</p>
+      <div class="card table-card grow">
+        <table id="tbl-pl">
+          <thead>
+            <tr><th style="width:16%">Fecha</th><th style="width:22%">Género</th>
+                <th style="width:12%">Año</th><th style="width:10%">Playlists</th>
+                <th style="width:9%">Tracks</th><th style="width:9%">Afuera</th>
+                <th style="width:22%">Carpeta</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p id="pl-empty" class="placeholder-note" style="padding:14px">Todavía no generaste playlists.</p>
+      </div>
+      <div class="bottom-bar">
+        <span id="pl-count" class="muted small" style="margin:0"></span>
+      </div>
     </div>
   </section>
 
   <div id="ctx-menu" class="ctx-menu">
     <div class="ctx-item" data-act="open">📂 Abrir en carpeta</div>
+    <div class="ctx-item" data-act="genre">🎚 Modificar género (tag)</div>
     <div class="ctx-item" data-act="edit">✏ Corregir ubicación</div>
     <div class="ctx-item" data-act="copy">📋 Copiar ruta destino</div>
     <div class="ctx-sep"></div>
@@ -231,6 +266,39 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
       <button class="btn btn-accent" id="modal-ok">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div id="pl-overlay" class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-title">🎧 Generar playlists para Traktor</div>
+    <div class="modal-msg">El género sale del <b>tag</b> (por eso es específico, ej. Deep House). El año, del tag o de la carpeta de año.</div>
+    <div class="cfg-row" style="border:none;background:none;padding:0;margin:0 0 8px">
+      <span class="lbl">Carpeta a analizar</span>
+      <input type="text" id="pl-source" readonly placeholder="(toda la biblioteca)">
+      <button class="btn btn-ghost" id="pl-pick-source">Elegir</button>
+    </div>
+    <div class="cfg-row" style="border:none;background:none;padding:0;margin:0 0 8px">
+      <span class="lbl">Género</span>
+      <select id="pl-genre"></select>
+    </div>
+    <div class="cfg-row" style="border:none;background:none;padding:0;margin:0 0 8px">
+      <span class="lbl">Año</span>
+      <input type="text" id="pl-year" spellcheck="false" placeholder="Dejá vacío = todos los años. O uno, ej. 2023">
+    </div>
+    <div class="cfg-row" style="border:none;background:none;padding:0;margin:0 0 4px">
+      <span class="lbl">Guardar en</span>
+      <input type="text" id="pl-dest" readonly placeholder="(elegí carpeta destino)">
+      <button class="btn btn-ghost" id="pl-pick-dest">Elegir</button>
+    </div>
+    <label class="pl-auto" style="margin-top:8px" title="Al ordenar música nueva, se suma sola a las playlists de género/año de esta carpeta (sin duplicar)">
+      <input type="checkbox" id="chk-pl-auto" checked>
+      Mantener estas playlists actualizadas al ordenar
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="pl-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="pl-go">Generar</button>
     </div>
   </div>
 </div>
@@ -256,6 +324,23 @@
   </div>
 </div>
 
+<div id="genre-overlay" class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-title">🎚 Modificar género</div>
+    <div class="modal-msg" id="genre-info"></div>
+    <div class="modal-msg small" id="genre-cur" style="margin-top:-6px"></div>
+    <div class="datos-row" style="margin:10px 0 14px">
+      <label>Nuevo género <select id="genre-select"></select></label>
+    </div>
+    <div class="modal-msg small" style="color:var(--muted)">Solo cambia el tag del archivo y el historial. NO mueve el archivo (para eso usá "Corregir ubicación").</div>
+    <div id="genre-err" class="small" style="color:var(--accent2)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="genre-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="genre-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div id="norm-overlay" class="modal-overlay">
   <div class="modal card norm-modal">
     <div class="modal-title">🎛 Revisar cambios de género</div>
@@ -263,6 +348,9 @@
     <div class="norm-toolbar">
       <button class="btn btn-ghost" id="norm-all">Tildar todos</button>
       <button class="btn btn-ghost" id="norm-none">Ninguno</button>
+      <label style="display:flex;align-items:center;gap:5px;margin-left:10px;color:var(--muted);font-size:12px;cursor:pointer">
+        <input type="checkbox" id="norm-only-empty"> Solo sin género
+      </label>
       <span style="margin:0 2px 0 10px; color:var(--muted); font-size:12px">Asignar a tildados:</span>
       <select id="norm-bulk"></select>
       <button class="btn btn-ghost" id="norm-assign">Asignar</button>
@@ -272,6 +360,29 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="norm-cancel">Cancelar</button>
       <button class="btn btn-accent" id="norm-apply">Aplicar seleccionados</button>
+    </div>
+  </div>
+</div>
+
+<div id="year-overlay" class="modal-overlay">
+  <div class="modal card norm-modal">
+    <div class="modal-title">📅 Completar años</div>
+    <div class="modal-msg" id="year-sub"></div>
+    <div class="norm-toolbar">
+      <button class="btn btn-ghost" id="year-all">Tildar todos</button>
+      <button class="btn btn-ghost" id="year-none">Ninguno</button>
+      <label style="display:flex;align-items:center;gap:5px;margin-left:10px;color:var(--muted);font-size:12px;cursor:pointer">
+        <input type="checkbox" id="year-only-empty" checked> Solo sin año
+      </label>
+      <span style="margin:0 2px 0 10px; color:var(--muted); font-size:12px">Asignar a tildados:</span>
+      <input type="text" id="year-bulk" placeholder="ej. 2023" style="width:80px">
+      <button class="btn btn-ghost" id="year-assign">Asignar</button>
+      <span id="year-count" class="muted small" style="margin-left:auto"></span>
+    </div>
+    <div id="year-list" class="norm-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="year-cancel">Cancelar</button>
+      <button class="btn btn-accent" id="year-apply">Aplicar seleccionados</button>
     </div>
   </div>
 </div>
@@ -291,8 +402,9 @@
       <ul>
         <li><strong>Carpeta base:</strong> con "Cambiar" elegís tu carpeta de música (donde se ordena todo).</li>
         <li><strong>Discogs token:</strong> con "Obtener token" generás uno gratis y lo pegás. Se usa para las búsquedas.</li>
-        <li><strong>Cargar música:</strong> "+ Tracks sueltos" (archivos a mano), "+ Carpeta EP/Album" (una carpeta como un álbum), o "📂 Escanear carpeta" (todo lo de un sello — saltea las carpetas de año ya ordenadas).</li>
-        <li><strong>Duplicados:</strong> si un track ya está en tu historial se marca ⚠ YA EN HISTORIAL y "Continuar" se bloquea hasta que lo quites ("🗑 Quitar duplicados"). Con <strong>click derecho</strong> ves los detalles y una comparación de calidad por tamaño.</li>
+        <li><strong>Cargar música:</strong> "+ Tracks sueltos" (archivos a mano), "+ Carpetas EP/Album" (una o varias carpetas como álbum — Ctrl/Shift para elegir muchas), o "📂 Escanear carpeta" (todo lo de un sello — saltea las carpetas de año ya ordenadas).</li>
+        <li><strong>Duplicados:</strong> si un track ya está en tu biblioteca (en disco o en el historial) se marca ⚠ YA EN BIBLIOTECA y "Continuar" se bloquea hasta que lo quites ("🗑 Quitar duplicados"). Con <strong>click derecho</strong> ves dónde está y una comparación de calidad por tamaño.</li>
+        <li><strong>Backup de Traktor:</strong> la carpeta "Traktor playlist backup" NO cuenta como duplicado (ya está configurada para ignorarse), así no te marca falsos duplicados por las copias del backup.</li>
         <li><strong>Mantenimiento:</strong> "Normalizar géneros" (uniforma los géneros de una carpeta, con revisión track por track) y "Generar playlists para Traktor" (.m3u8 por Género + Año).</li>
       </ul>
 
