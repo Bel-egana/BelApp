@@ -976,6 +976,77 @@ class Api:
         return {'tracks': tracks, 'total': len(tracks),
                 'con_sugerencia': con_sug, 'sin_genero': 0}
 
+    def _meta_from_path(self, base, path):
+        """Deduce género (carpeta), sello y año de la ubicación de un archivo
+        dentro de la biblioteca: base/<genero>/<sello>/<año>/[album/]archivo."""
+        try:
+            parts = list(Path(path).relative_to(base).parts[:-1])
+        except ValueError:
+            return {}
+        meta = {}
+        if len(parts) >= 1:
+            meta['genero'] = parts[0]
+        if len(parts) >= 2:
+            meta['sello'] = parts[1]
+        for p in parts:
+            if re.fullmatch(r'(19|20)\d\d', p):
+                meta['año'] = p
+                break
+        return meta
+
+    def count_moved_history(self):
+        """Cuántas entradas del historial tienen el archivo fuera de su ruta."""
+        return sum(1 for h in load_history(self._history_path)
+                   if not Path(h.get('destino', '')).is_file())
+
+    def repair_moved_history(self):
+        """Relocaliza las entradas cuyo archivo se movió: lo busca por nombre en
+        la biblioteca y actualiza ruta + género (del tag real) + sello/año/carpeta
+        según la nueva ubicación. Las que no encuentra (o son ambiguas) las marca
+        '(archivo movido)' y las lista en un txt. No mueve ni toca archivos."""
+        cfg = self.get_config()
+        base = cfg.get('base_path', '')
+        if not base or not Path(base).is_dir():
+            return {'error': 'No hay carpeta base válida.'}
+        base_p = Path(base)
+        idx = self._disk_dup_index()
+        hist = load_history(self._history_path)
+        reparadas, no_enc, perdidas = 0, 0, []
+        for h in hist:
+            dest = h.get('destino', '')
+            if not dest or Path(dest).is_file():
+                continue   # ya está OK
+            cands = idx.get(normalize_name(Path(dest).stem), [])
+            if len(cands) == 1:
+                nuevo = cands[0]
+                h['destino'] = nuevo
+                g = (read_id3(Path(nuevo)).get('genre') or '').strip()
+                if g:
+                    h['genero_especifico'] = g
+                for k, v in self._meta_from_path(base_p, nuevo).items():
+                    if v:
+                        h['genero' if k == 'genero' else k] = v
+                reparadas += 1
+            else:
+                h['genero_especifico'] = '(archivo movido)'
+                no_enc += 1
+                perdidas.append(Path(dest).name)
+        save_history(self._history_path, hist)
+        txt_file = ''
+        if perdidas:
+            rp = base_p / '_historial - archivos no encontrados.txt'
+            try:
+                rp.write_text(
+                    'ENTRADAS DEL HISTORIAL CUYO ARCHIVO NO SE ENCONTRÓ\n'
+                    '(se movieron/renombraron mucho, o se borraron)\n' + '=' * 60 +
+                    f'\n\n{len(perdidas)} archivos:\n\n'
+                    + '\n'.join(sorted(perdidas)) + '\n', encoding='utf-8')
+                txt_file = rp.name
+            except OSError:
+                pass
+        return {'reparadas': reparadas, 'no_encontradas': no_enc,
+                'txt_file': txt_file}
+
     def delete_history_entry(self, destino):
         hist = [h for h in load_history(self._history_path)
                 if h.get('destino', '') != destino]

@@ -1121,3 +1121,44 @@ def test_apply_normalize_actualiza_historial(tmp_path):
     h = load_history(tmp_path / "historial.json")[0]
     assert h['genero_especifico'] == 'Progressive House'        # el historial también
     assert h['genero'] == 'Deep & Progressive House'            # la carpeta/amplio NO cambia
+
+
+# ── Reparar rutas movidas del historial ──────────────────────────────────────
+def test_meta_from_path(tmp_path):
+    api = _api(tmp_path)
+    base = tmp_path / "_biblioteca"
+    p = base / "Deep & Progressive House" / "UV" / "2026" / "UV Miami" / "x.mp3"
+    meta = api._meta_from_path(base, p)
+    assert meta['genero'] == 'Deep & Progressive House'
+    assert meta['sello'] == 'UV'
+    assert meta['año'] == '2026'
+
+
+def test_repair_moved_history(tmp_path):
+    from core.metadata import write_id3_tags
+    from core.history import save_history, load_history
+    api = _api(tmp_path)
+    base = tmp_path / "_biblioteca"
+    newdir = base / "Deep & Progressive House" / "UV" / "2026"
+    newdir.mkdir(parents=True)
+    f = newdir / "Trilucid - 2000 (Extended Mix).mp3"
+    f.write_bytes(b"")
+    write_id3_tags(f, "Trilucid", "2000", "", "UV", "Progressive House", "2026")
+    api._invalidate_disk_index()
+    save_history(tmp_path / "historial.json", [
+        {'destino': str(base / "Deep & Progressive House" / "UV" / "2025"
+                       / "Trilucid - 2000 (Extended Mix).mp3"),
+         'genero': 'Deep & Progressive House',
+         'genero_especifico': 'Deep & Progressive House', 'sello': 'UV', 'año': '2025'},
+        {'destino': str(base / "X" / "no-existe.mp3"),
+         'genero_especifico': 'Melodic Techno & Techno'},
+    ])
+    r = api.repair_moved_history()
+    assert r['reparadas'] == 1 and r['no_encontradas'] == 1
+    h = load_history(tmp_path / "historial.json")
+    rep = next(x for x in h if 'Trilucid' in x['destino'])
+    assert rep['destino'] == str(f)                          # ruta actualizada
+    assert rep['genero_especifico'] == 'Progressive House'   # tag real
+    assert rep['año'] == '2026'                              # año de la nueva ubicación
+    perd = next(x for x in h if 'no-existe' in x['destino'])
+    assert perd['genero_especifico'] == '(archivo movido)'

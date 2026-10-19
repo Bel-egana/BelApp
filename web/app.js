@@ -1159,34 +1159,39 @@ async function loadHistory() {
     }
   } catch (e) { /* si falla, seguimos con lo que haya */ }
   populateGenreFilter();
-  updateFixBroadButton();
+  await updateRepairButton();
   renderHistory();
 }
 
-// Géneros "amplios" (nombre de carpeta) que NO son un sub-género válido.
-function broadOnlyGenres() {
-  return (GENRES || []).filter((g) => !(GENRES_SPEC || []).includes(g));
-}
-
-function updateFixBroadButton() {
-  const btn = $('#btn-hist-fixbroad');
+// Muestra el botón "Reparar rutas movidas" con la cantidad de entradas obsoletas.
+async function updateRepairButton() {
+  const btn = $('#btn-hist-repair');
   if (!btn) return;
-  const broad = broadOnlyGenres();
-  const n = history.filter((h) =>
-    broad.includes((h.genero_especifico || h.genero || '').trim())).length;
-  btn.hidden = n === 0;
-  btn.textContent = `🎚 Arreglar géneros amplios (${n})`;
+  try {
+    const n = await api().count_moved_history();
+    btn.hidden = n === 0;
+    btn.textContent = `🔧 Reparar rutas movidas (${n})`;
+  } catch (e) { btn.hidden = true; }
 }
 
-$('#btn-hist-fixbroad').addEventListener('click', async () => {
-  const r = await api().history_broad_genre_tracks();
-  if (!r.tracks || !r.tracks.length) {
-    await confirmModal('Arreglar géneros amplios',
-      'No hay pistas con género amplio para arreglar. ✅');
-    await loadHistory();
-    return;
-  }
-  openNormReview(r);
+$('#btn-hist-repair').addEventListener('click', async () => {
+  const n = await api().count_moved_history();
+  if (!n) { await confirmModal('Reparar rutas movidas', 'No hay rutas movidas. ✅'); return; }
+  const ok = await confirmModal('Reparar rutas movidas',
+    `${n} entradas tienen el archivo movido o renombrado. Voy a buscarlos en tu ` +
+    `biblioteca y actualizar el historial (ruta + género real + sello/año). ` +
+    'NO toco los archivos.', 'Reparar');
+  if (!ok) return;
+  flashMsg('⏳ Buscando archivos movidos… puede tardar (escanea la biblioteca).', 600000);
+  const r = await api().repair_moved_history();
+  flashMsg('');
+  if (r.error) { await confirmModal('Reparar rutas movidas', '✗ ' + r.error); return; }
+  await loadHistory();
+  const noEnc = r.no_encontradas
+    ? `\n\n⚠ ${r.no_encontradas} no se encontraron (quedaron marcadas "(archivo movido)"` +
+      (r.txt_file ? ` y están en:\n${r.txt_file}).` : ').')
+    : '';
+  await confirmModal('Listo ✓', `🔧 ${r.reparadas} rutas reparadas.${noEnc}`);
 });
 
 function populateGenreFilter() {
