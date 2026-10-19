@@ -1010,13 +1010,27 @@ class Api:
             return {'error': 'No hay carpeta base válida.'}
         base_p = Path(base)
         idx = self._disk_dup_index()
+        # Índice RELAJADO (ignora sufijos entre paréntesis/corchetes, ej.
+        # "(Extended Mix)") para pescar renombres que el match exacto no agarra.
+        def _relaxed(stem):
+            return normalize_name(re.sub(r'[\(\[].*?[\)\]]', '', stem))
+        relaxed_idx = {}
+        for paths in idx.values():
+            for p in paths:
+                rk = _relaxed(Path(p).stem)
+                if rk:
+                    relaxed_idx.setdefault(rk, []).append(p)
         hist = load_history(self._history_path)
         reparadas, no_enc, perdidas = 0, 0, []
         for h in hist:
             dest = h.get('destino', '')
             if not dest or Path(dest).is_file():
                 continue   # ya está OK
-            cands = idx.get(normalize_name(Path(dest).stem), [])
+            stem = Path(dest).stem
+            cands = idx.get(normalize_name(stem), [])
+            if len(cands) != 1:   # match exacto falló: probar el relajado
+                rc = relaxed_idx.get(_relaxed(stem), [])
+                cands = rc if len(rc) == 1 else []
             if len(cands) == 1:
                 nuevo = cands[0]
                 h['destino'] = nuevo
@@ -1046,6 +1060,16 @@ class Api:
                 pass
         return {'reparadas': reparadas, 'no_encontradas': no_enc,
                 'txt_file': txt_file}
+
+    def delete_moved_history(self):
+        """Quita del historial las entradas cuyo archivo ya no está en disco
+        (huérfanas tras reparar). NO toca la música. Devuelve {'removed': n}."""
+        hist = load_history(self._history_path)
+        keep = [h for h in hist if Path(h.get('destino', '')).is_file()]
+        removed = len(hist) - len(keep)
+        if removed:
+            save_history(self._history_path, keep)
+        return {'removed': removed}
 
     def delete_history_entry(self, destino):
         hist = [h for h in load_history(self._history_path)

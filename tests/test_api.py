@@ -1162,3 +1162,39 @@ def test_repair_moved_history(tmp_path):
     assert rep['año'] == '2026'                              # año de la nueva ubicación
     perd = next(x for x in h if 'no-existe' in x['destino'])
     assert perd['genero_especifico'] == '(archivo movido)'
+
+
+def test_repair_match_relajado_por_sufijo(tmp_path):
+    # El archivo real tiene "(Extended Mix)" pero el historial lo guardó sin eso.
+    from core.metadata import write_id3_tags
+    from core.history import save_history, load_history
+    api = _api(tmp_path)
+    base = tmp_path / "_biblioteca"
+    d = base / "Deep & Progressive House" / "UV" / "2026"
+    d.mkdir(parents=True)
+    f = d / "Trilucid - 2000 (Extended Mix).mp3"; f.write_bytes(b"")
+    write_id3_tags(f, "Trilucid", "2000", "", "UV", "Progressive House", "2026")
+    api._invalidate_disk_index()
+    save_history(tmp_path / "historial.json", [
+        {'destino': str(base / "X" / "Trilucid - 2000.mp3"),   # sin "(Extended Mix)"
+         'genero_especifico': 'Deep & Progressive House'},
+    ])
+    r = api.repair_moved_history()
+    assert r['reparadas'] == 1 and r['no_encontradas'] == 0
+    h = load_history(tmp_path / "historial.json")[0]
+    assert h['destino'] == str(f)
+    assert h['genero_especifico'] == 'Progressive House'
+
+
+def test_delete_moved_history(tmp_path):
+    from core.history import save_history, load_history
+    api = _api(tmp_path)
+    f = tmp_path / "existe.mp3"; f.write_bytes(b"")
+    save_history(tmp_path / "historial.json", [
+        {'destino': str(f), 'genero_especifico': 'Techno'},
+        {'destino': str(tmp_path / "huerfano.mp3"), 'genero_especifico': '(archivo movido)'},
+    ])
+    r = api.delete_moved_history()
+    assert r['removed'] == 1
+    h = load_history(tmp_path / "historial.json")
+    assert len(h) == 1 and h[0]['destino'] == str(f)

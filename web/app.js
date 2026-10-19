@@ -1188,10 +1188,22 @@ $('#btn-hist-repair').addEventListener('click', async () => {
   if (r.error) { await confirmModal('Reparar rutas movidas', '✗ ' + r.error); return; }
   await loadHistory();
   const noEnc = r.no_encontradas
-    ? `\n\n⚠ ${r.no_encontradas} no se encontraron (quedaron marcadas "(archivo movido)"` +
-      (r.txt_file ? ` y están en:\n${r.txt_file}).` : ').')
+    ? `\n\n⚠ ${r.no_encontradas} no se encontraron` +
+      (r.txt_file ? ` (están en: ${r.txt_file}).` : '.')
     : '';
   await confirmModal('Listo ✓', `🔧 ${r.reparadas} rutas reparadas.${noEnc}`);
+
+  if (r.no_encontradas > 0) {
+    const borrar = await confirmModal('Limpiar huérfanas',
+      `Quedaron ${r.no_encontradas} entradas cuyo archivo no está en disco ` +
+      '(se movieron demasiado o se borraron). ¿Las quito del historial? ' +
+      'NO toca la música, solo limpia esos registros viejos.', 'Quitar del historial');
+    if (borrar) {
+      const d = await api().delete_moved_history();
+      await loadHistory();
+      await confirmModal('Listo ✓', `🗑 ${d.removed} registros huérfanos quitados del historial.`);
+    }
+  }
 });
 
 function populateGenreFilter() {
